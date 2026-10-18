@@ -58,3 +58,8 @@
 | **Phase 4** | تدفق معالجة وتأكيد الطلبات وإرسالها لـ WhatsApp Cloud API مع منع التكرار. | Gemini High |
 | **Phase 5** | طبقة تعلم الآلة لترتيب التوصيات وتحليل الأداء واختبارات A/B. | Gemini High |
 | **Phase 6** | التجهيز للإنتاج، اختبارات المتصفح الشاملة (Playwright)، والأداء وحاويات Docker. | Gemini Flash ثم High |
+
+## End-of-batch procedure (mandatory)
+1. Run checks, show full output. 2. Tick the batch in this file. 3. Update PROJECT_STATE.md.
+4. Commit. 5. Print: short Arabic summary, "الموديل المقترح للدفعة الجاية: <model>", and the
+BOOTSTRAP PROMPT from docs/BOOTSTRAP_PROMPT.md verbatim. 6. STOP.
