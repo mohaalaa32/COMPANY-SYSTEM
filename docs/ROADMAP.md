@@ -19,7 +19,7 @@
 
 ### STEP 0B: محرك الحسابات الرياضي القطعي (Calc Engine - Agent 5)
 - [x] **0-B1**: استعادة وحفظ العمل وتصحيح حالة المشروع *(completed in a previous session, commits "recovery checkpoint (uncommitted work saved)" `1923067` and "docs: correct PROJECT_STATE to real state" `b4f273c`)*.
-- [ ] **0-B2**: مطابقة الأنواع وإصلاح المشاكل البرمجية في `packages/calc/src/`:
+- [x] **0-B2**: مطابقة الأنواع وإصلاح المشاكل البرمجية في `packages/calc/src/`:
   - تعديل `types.ts` ليطابق عقود `docs/CONTRACTS.md` حرفياً (`Product`، أوزان `budgetFit..`، `totalPriceIQD`، كفر الحزمة اختياري).
   - إصلاح المعالج `parser.ts` لمعالجة حرف "و" كعطف فقط عند مجيئه قبل لفظ رقمي معروف، وضمان سلامة كلمات مثل "واحد" و"عشرون".
   - معالجة حالة `minMarginPct = 0` في `scoring.ts` لمنع تجاوز `marginScore` للقيمة 1.0.

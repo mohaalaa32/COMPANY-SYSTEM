@@ -106,6 +106,36 @@ export interface ParseNumberOptions {
 }
 
 /**
+ * Resolves a single token to its numeric value.
+ * Preserves words starting with or containing "و" (such as "واحد" and "عشرون"),
+ * while properly treating a leading "و" as a conjunction only when the rest of the word is a known number.
+ */
+function resolveToken(token: string): number | null {
+  // 1. Direct match in dictionary (e.g. "واحد", "عشرون", "مية", "خمسة")
+  if (BASE_NUMBERS[token] !== undefined) {
+    return BASE_NUMBERS[token]!;
+  }
+
+  // 2. Conjunction prefix attached to a recognized word (e.g. "وعشرين", "وخمسة", "وواحد")
+  if (token.startsWith('و') && token.length > 1) {
+    const withoutWaw = token.slice(1);
+    if (BASE_NUMBERS[withoutWaw] !== undefined) {
+      return BASE_NUMBERS[withoutWaw]!;
+    }
+    if (/^\d+$/.test(withoutWaw)) {
+      return parseInt(withoutWaw, 10);
+    }
+  }
+
+  // 3. Pure digits
+  if (/^\d+$/.test(token)) {
+    return parseInt(token, 10);
+  }
+
+  return null;
+}
+
+/**
  * Parses numeric text from customer messages into integer IQD units.
  * Returns null if no valid number could be extracted.
  */
@@ -155,6 +185,16 @@ export function parseIraqiNumber(rawInput: string, options?: ParseNumberOptions)
   // "مليون" -> 1,000,000
   if (/^مليون$/i.test(text)) return 1000000;
 
+  // Compound million combinations (e.g. "مليون وميتين الف", "مليون و 250 الف")
+  const milMatch = text.match(/^(مليون|مليونين)\s*و\s*(.+)$/i);
+  if (milMatch && milMatch[1] && milMatch[2]) {
+    const baseMil = milMatch[1] === 'مليونين' ? 2000000 : 1000000;
+    const remainder = parseIraqiNumber(milMatch[2], options);
+    if (remainder !== null) {
+      return baseMil + remainder;
+    }
+  }
+
   // 3. Numeric digits with multipliers (e.g. "100 الف", "1.5 مليون", "100k", "99,000")
   // Check for "X مليون"
   const millionMatch = text.match(/^(\d+(?:[.,]\d+)?)\s*(مليون|ملايين|m|M)$/i);
@@ -177,7 +217,7 @@ export function parseIraqiNumber(rawInput: string, options?: ParseNumberOptions)
     if (!isNaN(parsed)) return parsed;
   }
 
-  // 5. Compound Arabic words (e.g. "مية الف", "خمسين الف", "خمسة وعشرين الف")
+  // 5. Compound Arabic words (e.g. "مية الف", "خمسين الف", "خمسة وعشرين الف", "واحد وعشرين الف")
   let multiplier = 1;
   let workingText = text;
 
@@ -189,17 +229,27 @@ export function parseIraqiNumber(rawInput: string, options?: ParseNumberOptions)
     workingText = workingText.replace(/\s*(مليون|ملايين)$/i, '').trim();
   }
 
-  // Tokenize and sum recognized base numbers
-  const tokens = workingText.split(/\s*(?:و|\s+)\s*/).filter(Boolean);
-  if (tokens.length > 0) {
+  // Split strictly by whitespace so that "و" inside words (like "واحد" or "عشرون") is never destroyed
+  const rawTokens = workingText.split(/\s+/).filter(Boolean);
+  if (rawTokens.length > 0) {
     let sum = 0;
     let allTokensRecognized = true;
 
-    for (const t of tokens) {
-      if (BASE_NUMBERS[t] !== undefined) {
-        sum += BASE_NUMBERS[t]!;
-      } else if (/^\d+$/.test(t)) {
-        sum += parseInt(t, 10);
+    for (let i = 0; i < rawTokens.length; i++) {
+      const token = rawTokens[i]!;
+
+      // Standalone "و" is accepted only as a conjunction between two valid number tokens
+      if (token === 'و') {
+        if (i === 0 || i === rawTokens.length - 1) {
+          allTokensRecognized = false;
+          break;
+        }
+        continue;
+      }
+
+      const val = resolveToken(token);
+      if (val !== null) {
+        sum += val;
       } else {
         allTokensRecognized = false;
         break;
