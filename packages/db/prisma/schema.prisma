@@ -1,0 +1,158 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum ConversationStatus {
+  AI_ACTIVE
+  WAITING_STAFF
+  STAFF_TAKEOVER
+  RESOLVED
+}
+
+enum ConversationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum MessageSender {
+  CUSTOMER
+  AI
+  STAFF
+  INTERNAL_NOTE
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  SENT_WHATSAPP
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  CARD_ON_DELIVERY
+}
+
+model Customer {
+  id             String         @id @default(cuid())
+  phone          String         @unique
+  name           String
+  city           String
+  addressDetails String
+  totalOrders    Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  conversations  Conversation[]
+  orders         Order[]
+
+  @@map("customers")
+}
+
+model Conversation {
+  id            String               @id @default(cuid())
+  customerId    String
+  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status        ConversationStatus   @default(AI_ACTIVE)
+  priority      ConversationPriority @default(NORMAL)
+  assignedStaff String?
+  summary       String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  messages      Message[]
+  toolAuditLogs ToolAuditLog[]
+  outcome       ConversationOutcome?
+  orders        Order[]
+
+  @@index([customerId])
+  @@index([status])
+  @@map("conversations")
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         MessageSender
+  content        String
+  attachedCards  Json?
+  createdAt      DateTime      @default(now())
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model Order {
+  id                  String        @id @default(cuid())
+  orderNumber         String        @unique
+  customerId          String
+  customer            Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  conversationId      String?
+  conversation        Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  status              OrderStatus   @default(DRAFT)
+  subtotalIQD         Int
+  deliveryFeeIQD      Int           @default(0)
+  totalAmountIQD      Int
+  paymentMethod       PaymentMethod @default(CASH_ON_DELIVERY)
+  idempotencyKey      String        @unique
+  notes               String?
+  conversationSummary String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  items               OrderItem[]
+
+  @@index([customerId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String  @id @default(cuid())
+  orderId       String
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String
+  productNameAr String
+  quantity      Int     @default(1)
+  unitPriceIQD  Int
+  subtotalIQD   Int
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model ToolAuditLog {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolName       String
+  inputs         Json
+  outputs        Json
+  durationMs     Int
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([toolName])
+  @@map("tool_audit_logs")
+}
+
+model ConversationOutcome {
+  id                 String       @id @default(cuid())
+  conversationId     String       @unique
+  conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  category           String
+  reason             String?
+  satisfactionRating Int?
+  notes              String?
+  createdAt          DateTime     @default(now())
+
+  @@map("conversation_outcomes")
+}

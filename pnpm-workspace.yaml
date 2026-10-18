@@ -7,6 +7,7 @@ packages:
 # pnpm 10 blocks dependency lifecycle scripts by default; allow only what we need.
 onlyBuiltDependencies:
   - '@prisma/engines'
+  - '@prisma/client'
   - prisma
   - esbuild
   - sharp

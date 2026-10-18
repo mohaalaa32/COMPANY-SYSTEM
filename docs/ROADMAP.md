@@ -13,7 +13,7 @@
 
 ### STEP 0A: التأسيس، الهوية، التوثيق، وقاعدة البيانات (Scaffold + Brand + DB Schema + Docs)
 - [x] **0-A1**: إعداد Monorepo وتثبيت ضبط الهوية الصارمة (`config/brand.ts`) وسكربت الفحص (`scripts/check-brand.mjs`) وتوثيق المعمارية والعقود والاتفاقيات في `docs/*`. *(Commit: `d54ed52`)*
-- [ ] **0-A2**: إنشاء مخطط قاعدة البيانات Prisma (`schema.prisma`) في `packages/db` وفقاً لمواصفات `docs/CONTRACTS.md §5`.
+- [x] **0-A2**: إنشاء مخطط قاعدة البيانات Prisma (`schema.prisma`) في `packages/db` وفقاً لمواصفات `docs/CONTRACTS.md §5`.
 
 ---
 

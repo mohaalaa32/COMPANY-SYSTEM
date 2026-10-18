@@ -10,4 +10,4 @@ CONTINUE the "Tel Baghdad AI Sales Assistant" project. Do not redo what exists.
 5. Finish with the End-of-batch procedure from docs/ROADMAP.md (checks with full output,
    tick the batch, update PROJECT_STATE.md, commit, Arabic summary, recommended model, and
    print this same prompt again). Then STOP.
-Never run destructive commands. Never write "تقنية بغداد" or "تقنية العراق".
+Never run destructive commands. Never write the forbidden legacy company names (enforced by scripts/check-brand.mjs).
