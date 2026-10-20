@@ -62,9 +62,9 @@ export interface MarginCheckResult {
 
 export interface RecommendedBundle {
   phone: Product;
-  cover?: Product;         // كفر الحزمة اختياري
+  cover: Product;          // Required in docs/CONTRACTS.md §3 (charger is optional)
   charger?: Product;
-  totalPriceIQD: number;   // totalPriceIQD بدلاً من finalPriceIQD
+  totalPriceIQD: number;   // totalPriceIQD strictly matches CONTRACTS.md
   savingsIQD: number;
   totalBeforeDiscountIQD?: number;
   bundleDiscountIQD?: number;
@@ -104,5 +104,5 @@ export interface ICalcEngine {
   matchBudget(products: Product[], budgetIQD: number, preference?: string): BudgetMatchResult;
   calculateInstallments(priceIQD: number, months: number, downPaymentIQD?: number): InstallmentPlan;
   verifyMargin(costIQD: number, proposedPriceIQD: number, minMarginPct: number): MarginCheckResult;
-  scoreProduct(product: Product, weights?: RecommendationWeights, criteria?: ProductScoreCriteria): number;
+  scoreProduct(product: Product, weights: { budgetFit: number; usageFit: number; stock: number; margin: number }): number;
 }
