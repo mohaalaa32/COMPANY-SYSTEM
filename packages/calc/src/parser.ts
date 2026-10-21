@@ -148,9 +148,11 @@ export function parseIraqiNumber(rawInput: string, options?: ParseNumberOptions)
   // Normalize Arabic-Indic and Persian digits
   text = normalizeDigits(text);
 
-  // Remove common polite or inquiry words
-  text = text.replace(/^(حدود|تقريباً|تقريبا|ميزانيتي|بسعر|بحدود|حوالي|أريد|اريد|عندي|يم|سعر|بـ|ب)\s+/gi, '');
-  text = text.replace(/\s+(دينار|د\.ع|عراقي|الف دينار|ألف دينار|iqd)\s*$/gi, '');
+  // Remove common polite or inquiry words (supports multiple chained prefixes like "ميزانيتي حوالي")
+  while (/^(حدود|تقريباً|تقريبا|ميزانيتي|بسعر|بحدود|حوالي|أريد|اريد|عندي|يم|سعر|جهاز|موبايل|تلفون|بـ|ب)\s+/i.test(text)) {
+    text = text.replace(/^(حدود|تقريباً|تقريبا|ميزانيتي|بسعر|بحدود|حوالي|أريد|اريد|عندي|يم|سعر|جهاز|موبايل|تلفون|بـ|ب)\s+/i, '');
+  }
+  text = text.replace(/\s+(دينار|د\.ع|عراقي|iqd)\s*$/gi, '');
 
   // 1. Direct Iraqi market slang terms:
   // "ورقة" = 100 USD (e.g. 150,000 IQD)
@@ -210,8 +212,8 @@ export function parseIraqiNumber(rawInput: string, options?: ParseNumberOptions)
     if (!isNaN(val)) return Math.round(val * 1000);
   }
 
-  // 4. Pure digits with thousand separators ("99,000", "١٠٠٬٠٠٠", "100 000")
-  const cleanNumeric = text.replace(/[,٬'\s]/g, '');
+  // 4. Pure digits with thousand separators ("99,000", "١٠٠٬٠٠٠", "٢٥٠،٠٠٠", "100 000")
+  const cleanNumeric = text.replace(/[,٬،'\s]/g, '');
   if (/^\d+$/.test(cleanNumeric)) {
     const parsed = parseInt(cleanNumeric, 10);
     if (!isNaN(parsed)) return parsed;
