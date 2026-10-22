@@ -42,7 +42,9 @@
 ---
 
 ### STEP 0D: الهياكل البصرية والأمان والتقييم (UI Skeleton + Chat + Security + Eval Harness)
-- [ ] **0-D1**: الهيكل الأساسي للواجهات في `apps/web` (واجهة العميل `/` ولوحة تحكم الموظفين `/dashboard`).
+- [ ] **0-D1a** [FLASH]: الهيكل الأساسي للواجهات في `apps/web` (واجهة العميل `/` ولوحة تحكم الموظفين `/dashboard`).
+- [ ] **0-D1b** [FLASH]: Customer product search bar (Arabic-aware: normalize alef/ya/ta marbuta, diacritics, Franco-Arabic brand names; filters: brand, price range, in-stock).
+- [ ] **0-D1c** [HIGH]: Staff "teach the AI": knowledge base (answers, objection replies, product notes) with draft -> supervisor approval -> live; AI-reply corrections logged as feedback. No direct model changes.
 - [ ] **0-D2**: منصة التقييم الأولي في `packages/eval` مع 50+ سيناريو عراقي.
 - [ ] **0-D3**: حواجز الأمان ومراجعة الجودة الشاملة واعتماد اكتمال المرحلة 0 بواسطة الوكيل 3.
 
