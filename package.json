@@ -16,6 +16,7 @@
     "typecheck": "pnpm -r --workspace-concurrency=4 typecheck",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "test:calc": "pnpm --filter @tel/calc test",
+    "test:adapters": "pnpm --filter @tel/adapters test",
     "test:e2e": "pnpm --filter @tel/web test:e2e",
     "eval": "pnpm --filter @tel/eval eval",
     "check:brand": "node scripts/check-brand.mjs",
