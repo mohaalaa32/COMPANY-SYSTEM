@@ -5,3 +5,4 @@
 
 export * from './types';
 export * from './tools/index';
+export * from './guard/index';
