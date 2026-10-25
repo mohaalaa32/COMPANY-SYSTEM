@@ -103,7 +103,7 @@ export class MockLLMProvider implements ILLMProvider {
 
     // General fallback response
     return {
-      content: 'أهلاً بك! في تل بغداد نقدّم أحدث الأجهزة الذكية مع الضمان المعتمد والتوصيل لكافة المحافظات.',
+      content: 'أهلاً بيك بتِل بغداد — فرع كربلاء. شنو الموبايل أو الجهاز اللي تدور عليه؟',
     };
   }
 }

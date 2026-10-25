@@ -39,6 +39,23 @@ export interface ToolCallResponse {
 // Tool Registry & Execution Context
 // ============================================================================
 
+/**
+ * Business-approved delivery policy. When absent, delivery is "undetermined":
+ * no fee may be shown or included in a final total, and orders cannot be confirmed.
+ */
+export interface DeliveryPolicy {
+  feeIQD: number;
+}
+
+/**
+ * Set by the agent (never by the model) for a single confirm_order call, only when the
+ * customer explicitly approved a draft that was already shown to them in an earlier turn.
+ */
+export interface OrderApproval {
+  approved: boolean;
+  draftOrderId: string;
+}
+
 export interface ToolExecutionContext {
   salesAdapter: ISalesAdapter;
   whatsAppAdapter: IWhatsAppAdapter;
@@ -46,6 +63,10 @@ export interface ToolExecutionContext {
   conversationId?: string;
   customerPhone?: string;
   metadata?: Record<string, unknown>;
+  /** Defaults to 'mock': catalog/stock data is test data, not confirmed Karbala inventory. */
+  dataMode?: 'mock' | 'live';
+  deliveryPolicy?: DeliveryPolicy;
+  orderApproval?: OrderApproval;
 }
 
 export interface ToolParameterProperty {

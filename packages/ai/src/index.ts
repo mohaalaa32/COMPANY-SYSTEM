@@ -6,5 +6,6 @@
 export * from './types';
 export * from './tools/index';
 export * from './guard/index';
+export * from './persona/index';
 export * from './provider/index';
 export * from './agent';

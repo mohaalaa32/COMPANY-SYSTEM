@@ -9,7 +9,17 @@ import type {
 import { getAllToolDefinitions, executeToolCall, isAllowedToolName } from './tools/registry';
 import { verifyResponseNumbers } from './guard/number-guard';
 import { MockLLMProvider } from './provider/mock-provider';
-import { brand } from '@tel/config/brand';
+import {
+  buildSalesSystemPrompt,
+  extractCustomerProfile,
+  findPendingDraft,
+  inferStage,
+  isExplicitOrderApproval,
+  detectHandoffTrigger,
+  verifyReplyClaims,
+  CLAIMS_BLOCKED_REPLY_AR,
+} from './persona';
+import type { ClaimsVerification, ConversationStage, CustomerProfile, HandoffSuggestion } from './persona';
 
 export interface AgentOptions {
   maxIterations?: number;
@@ -23,17 +33,21 @@ export interface AgentTurnResult {
   toolCallsExecuted: ToolCallRequest[];
   toolResults: ToolCallResponse[];
   verification: NumberVerificationResult;
+  claims: ClaimsVerification;
   isSafe: boolean;
   rejected: boolean;
+  rejectionReason?: 'numbers' | 'claims';
+  stage: ConversationStage;
+  profile: CustomerProfile;
+  handoffSuggestion: HandoffSuggestion | null;
   messages: AIMessage[];
 }
 
-export const DEFAULT_SALES_SYSTEM_PROMPT = `أنت المساعد الذكي لمبيعات "${brand.nameAr}".
-مهمتك مساعدة العملاء في اختيار الأجهزة والهواتف الذكية والإكسسوارات مع تقديم عروض دقيقة ومطابقة للميزانية.
-القواعد الصارمة:
-1. يمنع منعاً باتاً اختراع أو افتراض أي سعر أو نسبة خصم أو توفر للمخزون أو توتال بدون استدعاء الأداة المخصصة.
-2. جميع الأسعار والمواصفات والأقساط يجب أن تأتي حصراً من نتائج استدعاء الأدوات (search_products, check_stock, calculate_budget_and_price, calculate_installments).
-3. تحدث بأسلوب عراقي ودود ومحترف وقدم النصيحة الصادقة للعميل.`;
+/**
+ * Default (Persona v1) prompt without per-turn context. The agent rebuilds the prompt each
+ * turn with stage, known customer info, data mode and delivery-policy status.
+ */
+export const DEFAULT_SALES_SYSTEM_PROMPT = buildSalesSystemPrompt();
 
 /**
  * Sales AI Agent Orchestrator (Agent 4)
@@ -56,7 +70,7 @@ export class SalesAIAgent {
     this.context = context;
     this.provider = provider || new MockLLMProvider();
     this.maxIterations = options.maxIterations || 5;
-    this.systemPrompt = options.systemPrompt || DEFAULT_SALES_SYSTEM_PROMPT;
+    this.systemPrompt = options.systemPrompt || '';
     this.autoCorrectNumbers = options.autoCorrectNumbers || false;
     this.rejectOnHallucination = options.rejectOnHallucination ?? true;
   }
@@ -68,8 +82,30 @@ export class SalesAIAgent {
     userMessage: string,
     history: AIMessage[] = []
   ): Promise<AgentTurnResult> {
+    const stage = inferStage(history, userMessage);
+    const profile = extractCustomerProfile([...history, { role: 'user', content: userMessage }]);
+    const handoffSuggestion = detectHandoffTrigger(userMessage);
+
+    // Order approval is derived ONLY from the customer's own latest message and a draft that
+    // was already shown to them in an earlier turn. The model cannot grant it.
+    const pendingDraft = findPendingDraft(history);
+    const approval =
+      pendingDraft && isExplicitOrderApproval(userMessage)
+        ? { approved: true, draftOrderId: pendingDraft.draftOrderId }
+        : undefined;
+    const turnContext: ToolExecutionContext = { ...this.context, orderApproval: approval };
+
+    const systemPrompt =
+      this.systemPrompt ||
+      buildSalesSystemPrompt({
+        dataMode: this.context.dataMode,
+        deliveryPolicyConfigured: Boolean(this.context.deliveryPolicy),
+        stage,
+        profile,
+      });
+
     const conversation: AIMessage[] = [
-      { role: 'system', content: this.systemPrompt },
+      { role: 'system', content: systemPrompt },
       ...history,
       { role: 'user', content: userMessage },
     ];
@@ -115,14 +151,17 @@ export class SalesAIAgent {
             continue;
           }
 
-          const result = await executeToolCall(call, this.context);
+          const result = await executeToolCall(call, turnContext);
           toolResults.push(result);
 
           conversation.push({
             role: 'tool',
             name: call.name,
             toolCallId: call.id,
-            content: JSON.stringify(result.data),
+            // Failed tools must be visible to the model so it can answer honestly.
+            content: JSON.stringify(
+              result.success ? result.data : { toolFailed: true, error: result.error ?? 'unknown_error' }
+            ),
           });
         }
 
@@ -146,15 +185,26 @@ export class SalesAIAgent {
 
     let safeReply = finalReply;
     let isRejected = false;
+    let rejectionReason: 'numbers' | 'claims' | undefined;
 
     if (!verification.isSafe) {
       if (this.autoCorrectNumbers && verification.correctedContent) {
         safeReply = verification.correctedContent;
       } else if (this.rejectOnHallucination) {
         isRejected = true;
+        rejectionReason = 'numbers';
         safeReply =
           'عذراً، تم حجب الرد بسبب عدم تطابق الأرقام مع بيانات النظام الرسمية. يرجى مراجعة موظف المبيعات للتأكد من الأسعار المعتمدة.';
       }
+    }
+
+    // Claims guard: no "order confirmed" / "handed off" / delivery / policy / discount claims
+    // that the actual tool results do not back.
+    const claims = verifyReplyClaims(finalReply, toolResults);
+    if (!claims.isSafe && !isRejected) {
+      isRejected = true;
+      rejectionReason = 'claims';
+      safeReply = CLAIMS_BLOCKED_REPLY_AR;
     }
 
     return {
@@ -162,8 +212,13 @@ export class SalesAIAgent {
       toolCallsExecuted,
       toolResults,
       verification,
-      isSafe: verification.isSafe,
+      claims,
+      isSafe: verification.isSafe && claims.isSafe,
       rejected: isRejected,
+      rejectionReason,
+      stage,
+      profile,
+      handoffSuggestion,
       messages: conversation,
     };
   }

@@ -126,12 +126,19 @@ const checkStockTool: ToolDefinition = {
     const branches: BranchStock[] = await context.salesAdapter.checkStock(productId, branchId);
     const totalAvailable = branches.reduce((sum, b) => sum + (b.available ? b.quantity : 0), 0);
 
+    const isSimulated = (context.dataMode ?? 'mock') !== 'live';
+
     return {
       productId,
       branchId: branchId || null,
       branches,
       totalAvailable,
       isAvailable: totalAvailable > 0,
+      // Test inventory is not confirmed Karbala stock; the assistant must say so.
+      isSimulatedData: isSimulated,
+      ...(isSimulated
+        ? { stockNoteAr: 'بيانات المخزون الحالية تجريبية وغير مؤكدة، والتوفر الفعلي يؤكده موظف المبيعات.' }
+        : {}),
     };
   },
 };
@@ -297,10 +304,6 @@ const createOrderDraftTool: ToolDefinition = {
         type: 'array',
         description: 'Array of items with productId and quantity (branch is always Karbala)',
       },
-      deliveryFeeIQD: {
-        type: 'number',
-        description: 'Delivery fee (defaults to 5,000 IQD for Baghdad, 10,000 other governorates)',
-      },
     },
     required: ['items'],
   },
@@ -348,8 +351,8 @@ const createOrderDraftTool: ToolDefinition = {
       });
     }
 
-    const deliveryFeeIQD = Number.isFinite(Number(args.deliveryFeeIQD)) ? Number(args.deliveryFeeIQD) : 5000;
-    const totalAmountIQD = subtotalIQD + deliveryFeeIQD;
+    // Delivery fee comes ONLY from the business-approved policy. Model-supplied fees are ignored.
+    const policy = context.deliveryPolicy;
     const draftOrderId = `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     return {
@@ -358,9 +361,15 @@ const createOrderDraftTool: ToolDefinition = {
       reservationId: reservationResult.reservationId,
       expiresAt: reservationResult.expiresAt,
       items: itemsDetails,
+      // Products total only. It is NOT a final total unless deliveryStatus is 'approved'.
       subtotalIQD,
-      deliveryFeeIQD,
-      totalAmountIQD,
+      deliveryStatus: policy ? 'approved' : 'undetermined',
+      deliveryFeeIQD: policy ? policy.feeIQD : null,
+      totalAmountIQD: policy ? subtotalIQD + policy.feeIQD : null,
+      ...(policy
+        ? {}
+        : { deliveryNoteAr: 'رسوم التوصيل غير محددة بعد، والإجمالي النهائي يُحدَّد بعد اعتماد سياسة التوصيل.' }),
+      isSimulatedData: (context.dataMode ?? 'mock') !== 'live',
     };
   },
 };
@@ -410,13 +419,66 @@ const confirmOrderTool: ToolDefinition = {
       throw new Error('idempotencyKey is strictly required for order confirmation');
     }
 
-    const sendResult: WhatsAppSendResult = await context.whatsAppAdapter.sendOrderConfirmation(payload);
+    const blocked = (blockedReason: string) => ({
+      confirmed: false,
+      blocked: true,
+      blockedReason,
+      orderNumber: payload.orderNumber,
+    });
+
+    // Gate 1: explicit customer approval of a draft already shown in an earlier turn.
+    // This flag is set by the agent from the customer's own message, never by the model.
+    const approval = context.orderApproval;
+    if (!approval || !approval.approved) {
+      return blocked('no_explicit_customer_approval');
+    }
+    if (approval.draftOrderId !== payload.orderId) {
+      return blocked('order_id_mismatch');
+    }
+
+    // Gate 2: delivery fee must come from an approved policy (no policy => undetermined => no order).
+    const policy = context.deliveryPolicy;
+    if (!policy) {
+      return blocked('delivery_policy_not_approved');
+    }
+
+    // Gate 3: re-verify prices against the catalog at confirmation time and recompute totals.
+    if (!Array.isArray(payload.items) || payload.items.length === 0) {
+      return blocked('empty_items');
+    }
+    let subtotal = 0;
+    for (const item of payload.items) {
+      const prod = await context.salesAdapter.getProductById(String(item.productId));
+      if (!prod) {
+        return blocked('product_not_found');
+      }
+      const livePrice = prod.salePriceIQD ?? prod.basePriceIQD;
+      const qty = Number(item.quantity);
+      if (!Number.isInteger(qty) || qty <= 0) {
+        return blocked('invalid_quantity');
+      }
+      if (Number(item.unitPriceIQD) !== livePrice) {
+        return blocked('price_changed');
+      }
+      subtotal += livePrice * qty;
+    }
+    if (Number(payload.totalAmountIQD) !== subtotal + policy.feeIQD) {
+      return blocked('total_mismatch');
+    }
+
+    const sendResult: WhatsAppSendResult = await context.whatsAppAdapter.sendOrderConfirmation({
+      ...payload,
+      deliveryFeeIQD: policy.feeIQD,
+    });
 
     return {
       confirmed: sendResult.success,
       orderNumber: payload.orderNumber,
       messageId: sendResult.messageId,
       status: sendResult.status,
+      subtotalIQD: subtotal,
+      deliveryFeeIQD: policy.feeIQD,
+      totalAmountIQD: payload.totalAmountIQD,
       error: sendResult.error,
     };
   },

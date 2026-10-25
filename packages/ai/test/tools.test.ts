@@ -150,7 +150,7 @@ describe('Sales AI Tools Registry (Agent 4 Tool Calling)', () => {
     expect(data.plan.breakdownAr).toContain('12');
   });
 
-  it('8. create_order_draft: reserves stock and prepares draft with delivery', async () => {
+  it('8. create_order_draft: reserves stock and sets delivery as undetermined without approved policy', async () => {
     const res = await executeToolCall(
       {
         id: 'call_8',
@@ -160,56 +160,119 @@ describe('Sales AI Tools Registry (Agent 4 Tool Calling)', () => {
             {
               productId: 'prod-ip16pm-256',
               quantity: 1,
-              branchId: 'branch-karbala',
             },
           ],
-          deliveryFeeIQD: 5000,
         },
       },
       context
     );
 
     expect(res.success).toBe(true);
-    const data = res.data as { success: boolean; draftOrderId: string; totalAmountIQD: number };
+    const data = res.data as {
+      success: boolean;
+      draftOrderId: string;
+      subtotalIQD: number;
+      deliveryStatus: string;
+      deliveryFeeIQD: number | null;
+      totalAmountIQD: number | null;
+    };
     expect(data.success).toBe(true);
     expect(data.draftOrderId).toBeDefined();
-    expect(data.totalAmountIQD).toBe(1850000 + 5000);
+    expect(data.subtotalIQD).toBe(1850000);
+    // Unapproved delivery fee must not be assumed or presented as final
+    expect(data.deliveryStatus).toBe('undetermined');
+    expect(data.deliveryFeeIQD).toBeNull();
+    expect(data.totalAmountIQD).toBeNull();
+
+    // When approved policy is present:
+    const resWithPolicy = await executeToolCall(
+      {
+        id: 'call_8_policy',
+        name: 'create_order_draft',
+        arguments: {
+          items: [{ productId: 'prod-ip16pm-256', quantity: 1 }],
+        },
+      },
+      { ...context, deliveryPolicy: { feeIQD: 5000 } }
+    );
+    const dataWithPolicy = resWithPolicy.data as {
+      deliveryStatus: string;
+      deliveryFeeIQD: number;
+      totalAmountIQD: number;
+    };
+    expect(dataWithPolicy.deliveryStatus).toBe('approved');
+    expect(dataWithPolicy.deliveryFeeIQD).toBe(5000);
+    expect(dataWithPolicy.totalAmountIQD).toBe(1855000);
   });
 
-  it('9. confirm_order: dispatches order confirmation via WhatsApp adapter', async () => {
-    const res = await executeToolCall(
-      {
-        id: 'call_9',
-        name: 'confirm_order',
-        arguments: {
-          orderId: 'ord_123',
-          orderNumber: 'TB-2026-9999',
-          idempotencyKey: 'idemp_tool_call_test_1',
-          customer: {
-            name: 'حيدر الكرخي',
-            phone: '07801234567',
-            city: 'بغداد',
-            addressDetails: 'المنصور، شارع 14 رمضان',
-          },
-          items: [
-            {
-              productId: 'prod-ip16pm-256',
-              productNameAr: 'آبل آيفون 16 برو ماكس',
-              quantity: 1,
-              unitPriceIQD: 1850000,
-              subtotalIQD: 1850000,
-            },
-          ],
-          deliveryFeeIQD: 5000,
-          totalAmountIQD: 1855000,
-          paymentMethod: 'cash_on_delivery',
+  it('9. confirm_order: blocks without explicit customer approval or approved delivery policy, and confirms when authorized', async () => {
+    const orderPayload = {
+      orderId: 'ord_123',
+      orderNumber: 'TB-2026-9999',
+      idempotencyKey: 'idemp_tool_call_test_1',
+      customer: {
+        name: 'حيدر الكرخي',
+        phone: '07801234567',
+        city: 'بغداد',
+        addressDetails: 'المنصور، شارع 14 رمضان',
+      },
+      items: [
+        {
+          productId: 'prod-ip16pm-256',
+          productNameAr: 'آبل آيفون 16 برو ماكس',
+          quantity: 1,
+          unitPriceIQD: 1850000,
+          subtotalIQD: 1850000,
         },
+      ],
+      deliveryFeeIQD: 5000,
+      totalAmountIQD: 1855000,
+      paymentMethod: 'cash_on_delivery',
+    };
+
+    // Attempt 1: Without explicit customer approval -> BLOCKED
+    const resBlockedNoApproval = await executeToolCall(
+      {
+        id: 'call_9_unapproved',
+        name: 'confirm_order',
+        arguments: orderPayload,
       },
       context
     );
+    expect(resBlockedNoApproval.success).toBe(true);
+    expect((resBlockedNoApproval.data as { confirmed: boolean; blockedReason: string }).confirmed).toBe(false);
+    expect((resBlockedNoApproval.data as { blockedReason: string }).blockedReason).toBe('no_explicit_customer_approval');
 
-    expect(res.success).toBe(true);
-    const data = res.data as { confirmed: boolean; orderNumber: string };
+    // Attempt 2: With approval but without approved delivery policy -> BLOCKED
+    const resBlockedNoPolicy = await executeToolCall(
+      {
+        id: 'call_9_no_policy',
+        name: 'confirm_order',
+        arguments: orderPayload,
+      },
+      {
+        ...context,
+        orderApproval: { approved: true, draftOrderId: 'ord_123' },
+      }
+    );
+    expect((resBlockedNoPolicy.data as { confirmed: boolean }).confirmed).toBe(false);
+    expect((resBlockedNoPolicy.data as { blockedReason: string }).blockedReason).toBe('delivery_policy_not_approved');
+
+    // Attempt 3: Fully authorized with explicit customer approval and approved delivery policy
+    const resAuthorized = await executeToolCall(
+      {
+        id: 'call_9_authorized',
+        name: 'confirm_order',
+        arguments: orderPayload,
+      },
+      {
+        ...context,
+        orderApproval: { approved: true, draftOrderId: 'ord_123' },
+        deliveryPolicy: { feeIQD: 5000 },
+      }
+    );
+    expect(resAuthorized.success).toBe(true);
+    const data = resAuthorized.data as { confirmed: boolean; orderNumber: string };
     expect(data.confirmed).toBe(true);
     expect(data.orderNumber).toBe('TB-2026-9999');
   });
