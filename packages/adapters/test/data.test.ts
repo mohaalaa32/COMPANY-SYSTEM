@@ -1,29 +1,29 @@
 import { describe, it, expect } from 'vitest';
-import { MOCK_PRODUCTS, MOCK_BRANCHES, MOCK_OFFERS } from '../src/index';
+import { MOCK_PRODUCTS, MOCK_BRANCHES, MOCK_OFFERS, KARBALA_BRANCH_ID } from '../src/index';
 
 describe('Iraqi Catalog & Adapters Data Integrity', () => {
-  describe('MOCK_BRANCHES', () => {
-    it('contains all 5 planned Iraqi store branches with valid data', () => {
-      expect(MOCK_BRANCHES.length).toBe(5);
+  describe('MOCK_BRANCHES (Karbala-only deployment)', () => {
+    it('exposes exactly one branch: Karbala', () => {
+      expect(MOCK_BRANCHES.length).toBe(1);
+      expect(MOCK_BRANCHES[0]?.id).toBe(KARBALA_BRANCH_ID);
+      expect(MOCK_BRANCHES[0]?.id).toBe('branch-karbala');
+      expect(MOCK_BRANCHES[0]?.city).toBe('كربلاء');
+      expect(MOCK_BRANCHES[0]?.isMainStore).toBe(true);
+    });
 
-      const branchIds = MOCK_BRANCHES.map((b) => b.id);
-      expect(branchIds).toEqual([
-        'branch-karrada',
-        'branch-mansour',
-        'branch-basra',
-        'branch-erbil',
-        'branch-najaf',
-      ]);
-
-      const mainStore = MOCK_BRANCHES.find((b) => b.isMainStore);
-      expect(mainStore).toBeDefined();
-      expect(mainStore?.id).toBe('branch-karrada');
-
+    it('does not invent address, phone or working hours', () => {
       for (const branch of MOCK_BRANCHES) {
-        expect(branch.nameAr).toBeDefined();
-        expect(branch.city).toMatch(/^(بغداد|البصرة|أربيل|النجف)$/);
-        expect(branch.phone).toMatch(/^\+964/);
-        expect(branch.addressAr.length).toBeGreaterThan(10);
+        expect(branch.addressAr).toBeUndefined();
+        expect(branch.phone).toBeUndefined();
+        expect(branch).not.toHaveProperty('workingHours');
+      }
+    });
+
+    it('never references any non-Karbala branch in catalog stock', () => {
+      for (const prod of MOCK_PRODUCTS) {
+        for (const b of prod.branches) {
+          expect(b.branchId).toBe(KARBALA_BRANCH_ID);
+        }
       }
     });
   });

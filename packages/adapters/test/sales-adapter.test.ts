@@ -126,14 +126,14 @@ describe('Sales Adapter (MockSalesAdapter)', () => {
     });
 
     it('filters products by specific branch stock availability', async () => {
-      const erbilAvailable = await adapter.searchProducts({
-        branchId: 'branch-erbil',
+      const karbalaAvailable = await adapter.searchProducts({
+        branchId: 'branch-karbala',
       });
 
-      expect(erbilAvailable.length).toBeGreaterThan(0);
+      expect(karbalaAvailable.length).toBeGreaterThan(0);
       expect(
-        erbilAvailable.every((p) =>
-          p.branches.some((b) => b.branchId === 'branch-erbil' && b.available && b.quantity > 0)
+        karbalaAvailable.every((p) =>
+          p.branches.some((b) => b.branchId === 'branch-karbala' && b.available && b.quantity > 0)
         )
       ).toBe(true);
     });
@@ -165,23 +165,17 @@ describe('Sales Adapter (MockSalesAdapter)', () => {
   });
 
   describe('checkStock', () => {
-    it('returns stock breakdown across all 5 branches', async () => {
+    it('returns stock for the single Karbala branch only', async () => {
       const stock = await adapter.checkStock('prod-ip16pm-256');
-      expect(stock.length).toBe(5);
-      const branchIds = stock.map((s) => s.branchId);
-      expect(branchIds).toContain('branch-karrada');
-      expect(branchIds).toContain('branch-mansour');
-      expect(branchIds).toContain('branch-basra');
-      expect(branchIds).toContain('branch-erbil');
-      expect(branchIds).toContain('branch-najaf');
+      expect(stock.map((s) => s.branchId)).toEqual(['branch-karbala']);
     });
 
     it('returns stock for a single specified branch', async () => {
-      const karradaStock = await adapter.checkStock('prod-ip16pm-256', 'branch-karrada');
-      expect(karradaStock.length).toBe(1);
-      expect(karradaStock[0]?.branchId).toBe('branch-karrada');
-      expect(karradaStock[0]?.quantity).toBeGreaterThan(0);
-      expect(karradaStock[0]?.available).toBe(true);
+      const karbalaStock = await adapter.checkStock('prod-ip16pm-256', 'branch-karbala');
+      expect(karbalaStock.length).toBe(1);
+      expect(karbalaStock[0]?.branchId).toBe('branch-karbala');
+      expect(karbalaStock[0]?.quantity).toBeGreaterThan(0);
+      expect(karbalaStock[0]?.available).toBe(true);
     });
 
     it('returns empty array if product does not exist', async () => {
@@ -205,14 +199,14 @@ describe('Sales Adapter (MockSalesAdapter)', () => {
 
   describe('reserveStock and releaseStock', () => {
     it('successfully reserves stock, decrements quantity, and tracks expiration', async () => {
-      const initialStock = await adapter.checkStock('prod-ip16pm-256', 'branch-karrada');
+      const initialStock = await adapter.checkStock('prod-ip16pm-256', 'branch-karbala');
       const startQty = initialStock[0]!.quantity;
 
       const result = await adapter.reserveStock([
         {
           productId: 'prod-ip16pm-256',
           quantity: 2,
-          branchId: 'branch-karrada',
+          branchId: 'branch-karbala',
         },
       ]);
 
@@ -223,7 +217,7 @@ describe('Sales Adapter (MockSalesAdapter)', () => {
       ]);
 
       // Verify branch stock was decremented
-      const postStock = await adapter.checkStock('prod-ip16pm-256', 'branch-karrada');
+      const postStock = await adapter.checkStock('prod-ip16pm-256', 'branch-karbala');
       expect(postStock[0]!.quantity).toBe(startQty - 2);
 
       // Verify active reservation is tracked
@@ -233,27 +227,27 @@ describe('Sales Adapter (MockSalesAdapter)', () => {
 
       // Release stock and verify restoration
       await adapter.releaseStock(result.reservationId);
-      const restoredStock = await adapter.checkStock('prod-ip16pm-256', 'branch-karrada');
+      const restoredStock = await adapter.checkStock('prod-ip16pm-256', 'branch-karbala');
       expect(restoredStock[0]!.quantity).toBe(startQty);
 
       expect(adapter.getActiveReservations().length).toBe(0);
     });
 
     it('fails atomically if any item has insufficient stock and preserves original quantities', async () => {
-      const karradaInitial = (await adapter.checkStock('prod-ip16pm-256', 'branch-karrada'))[0]!.quantity;
-      const mansourInitial = (await adapter.checkStock('prod-s24u-256', 'branch-mansour'))[0]!.quantity;
+      const karbalaInitial = (await adapter.checkStock('prod-ip16pm-256', 'branch-karbala'))[0]!.quantity;
+      const karbalaOtherInitial = (await adapter.checkStock('prod-s24u-256', 'branch-karbala'))[0]!.quantity;
 
       // Request an impossible quantity (9999 units) for one item
       const result = await adapter.reserveStock([
         {
           productId: 'prod-ip16pm-256',
           quantity: 1,
-          branchId: 'branch-karrada',
+          branchId: 'branch-karbala',
         },
         {
           productId: 'prod-s24u-256',
           quantity: 9999, // Impossible quantity
-          branchId: 'branch-mansour',
+          branchId: 'branch-karbala',
         },
       ]);
 
@@ -265,11 +259,11 @@ describe('Sales Adapter (MockSalesAdapter)', () => {
       expect(result.items[1]?.reserved).toBe(0);
 
       // Verify ZERO quantities were deducted (atomic rollback guarantee)
-      const karradaPost = (await adapter.checkStock('prod-ip16pm-256', 'branch-karrada'))[0]!.quantity;
-      const mansourPost = (await adapter.checkStock('prod-s24u-256', 'branch-mansour'))[0]!.quantity;
+      const karbalaPost = (await adapter.checkStock('prod-ip16pm-256', 'branch-karbala'))[0]!.quantity;
+      const karbalaOtherPost = (await adapter.checkStock('prod-s24u-256', 'branch-karbala'))[0]!.quantity;
 
-      expect(karradaPost).toBe(karradaInitial);
-      expect(mansourPost).toBe(mansourInitial);
+      expect(karbalaPost).toBe(karbalaInitial);
+      expect(karbalaOtherPost).toBe(karbalaOtherInitial);
     });
 
     it('handles empty items array gracefully', async () => {

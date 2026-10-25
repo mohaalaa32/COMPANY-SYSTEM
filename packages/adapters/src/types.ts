@@ -143,8 +143,9 @@ export interface BranchInfo {
   id: string;
   nameAr: string;
   city: string;
-  addressAr: string;
-  phone: string;
+  /** Only set from verified company data; never invent. */
+  addressAr?: string;
+  phone?: string;
   isMainStore: boolean;
 }
 

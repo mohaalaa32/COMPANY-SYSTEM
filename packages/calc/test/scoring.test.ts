@@ -24,8 +24,8 @@ describe('Deterministic Recommendation Scoring (scoreProduct)', () => {
     totalStock: 8,
     branches: [
       {
-        branchId: 'b-mansour',
-        branchNameAr: 'فرع المنصور',
+        branchId: 'branch-karbala',
+        branchNameAr: 'فرع كربلاء',
         quantity: 8,
         available: true,
       },

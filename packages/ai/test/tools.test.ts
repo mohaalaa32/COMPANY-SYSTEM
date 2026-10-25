@@ -75,7 +75,7 @@ describe('Sales AI Tools Registry (Agent 4 Tool Calling)', () => {
       {
         id: 'call_3',
         name: 'check_stock',
-        arguments: { productId: 'prod-ip16pm-256', branchId: 'branch-karrada' },
+        arguments: { productId: 'prod-ip16pm-256', branchId: 'branch-karbala' },
       },
       context
     );
@@ -160,7 +160,7 @@ describe('Sales AI Tools Registry (Agent 4 Tool Calling)', () => {
             {
               productId: 'prod-ip16pm-256',
               quantity: 1,
-              branchId: 'branch-karrada',
+              branchId: 'branch-karbala',
             },
           ],
           deliveryFeeIQD: 5000,
@@ -247,4 +247,55 @@ describe('Sales AI Tools Registry (Agent 4 Tool Calling)', () => {
     expect(res.success).toBe(false);
     expect(res.error).toContain('unauthorized');
   });
+
+  describe('Karbala-only scope (server-enforced)', () => {
+    it('check_stock ignores a model-supplied foreign branchId and reports Karbala only', async () => {
+      const res = await executeToolCall(
+        {
+          id: 'scope_1',
+          name: 'check_stock',
+          arguments: { productId: 'prod-ip16pm-256', branchId: 'branch-basra' },
+        },
+        context
+      );
+
+      expect(res.success).toBe(true);
+      const data = res.data as { isAvailable: boolean; branches: Array<{ branchId: string }> };
+      expect(data.isAvailable).toBe(true);
+      expect(data.branches.map((b) => b.branchId)).toEqual(['branch-karbala']);
+    });
+
+    it('search_products ignores a foreign branchId instead of returning an empty catalog', async () => {
+      const res = await executeToolCall(
+        { id: 'scope_2', name: 'search_products', arguments: { branchId: 'branch-erbil', limit: 3 } },
+        context
+      );
+
+      expect(res.success).toBe(true);
+      const data = res.data as { count: number; products: Array<{ branches: Array<{ branchId: string }> }> };
+      expect(data.count).toBe(3);
+      for (const p of data.products) {
+        expect(p.branches.every((b) => b.branchId === 'branch-karbala')).toBe(true);
+      }
+    });
+
+    it('create_order_draft reserves in Karbala even if the model names another branch', async () => {
+      const res = await executeToolCall(
+        {
+          id: 'scope_3',
+          name: 'create_order_draft',
+          arguments: {
+            items: [{ productId: 'prod-ip16pm-256', quantity: 1, branchId: 'branch-najaf' }],
+          },
+        },
+        context
+      );
+
+      expect(res.success).toBe(true);
+      const data = res.data as { success: boolean; items: Array<{ branchId: string }> };
+      expect(data.success).toBe(true);
+      expect(data.items.map((i) => i.branchId)).toEqual(['branch-karbala']);
+    });
+  });
+
 });

@@ -1,3 +1,4 @@
+import { KARBALA_BRANCH_ID } from '@tel/adapters';
 import type {
   Product,
   Offer,
@@ -37,8 +38,8 @@ export function isAllowedToolName(name: string): name is SalesAIToolName {
  */
 const searchProductsTool: ToolDefinition = {
   name: 'search_products',
-  descriptionAr: 'البحث عن المنتجات في الكتالوج بالاسم، الماركة، الفئة، نطاق السعر، الكلمات الدلالية، أو توفر الفرع.',
-  descriptionEn: 'Search products by query, category, brand, price range, tags, or branch availability.',
+  descriptionAr: 'البحث عن المنتجات في الكتالوج بالاسم، الماركة، الفئة، نطاق السعر، أو الكلمات الدلالية.',
+  descriptionEn: 'Search products by query, category, brand, price range, or tags (Karbala branch only).',
   parameters: {
     type: 'object',
     properties: {
@@ -52,7 +53,6 @@ const searchProductsTool: ToolDefinition = {
       minPriceIQD: { type: 'number', description: 'Minimum price in Iraqi Dinars (IQD)' },
       maxPriceIQD: { type: 'number', description: 'Maximum price in Iraqi Dinars (IQD)' },
       tags: { type: 'array', description: 'Tags, e.g. gaming, student, charger, cover' },
-      branchId: { type: 'string', description: 'Specific branch ID, e.g. branch-karrada' },
       limit: { type: 'number', description: 'Maximum number of items to return' },
     },
   },
@@ -64,7 +64,8 @@ const searchProductsTool: ToolDefinition = {
       minPriceIQD: args.minPriceIQD as number | undefined,
       maxPriceIQD: args.maxPriceIQD as number | undefined,
       tags: args.tags as string[] | undefined,
-      branchId: args.branchId as string | undefined,
+      // Server-enforced scope: model-supplied branch IDs are ignored.
+      branchId: KARBALA_BRANCH_ID,
       limit: args.limit as number | undefined,
     });
 
@@ -108,19 +109,19 @@ const getProductDetailsTool: ToolDefinition = {
  */
 const checkStockTool: ToolDefinition = {
   name: 'check_stock',
-  descriptionAr: 'التحقق من توفر المخزون اللحظي للمنتج في جميع فروع العراق أو فرع معين.',
-  descriptionEn: 'Check real-time stock availability in all branches or a specific branch.',
+  descriptionAr: 'التحقق من توفر المخزون اللحظي للمنتج في فرع كربلاء.',
+  descriptionEn: 'Check real-time stock availability in the Karbala branch.',
   parameters: {
     type: 'object',
     properties: {
       productId: { type: 'string', description: 'Product ID or SKU' },
-      branchId: { type: 'string', description: 'Optional specific branch ID (e.g. branch-karrada)' },
     },
     required: ['productId'],
   },
   execute: async (args, context) => {
     const productId = String(args.productId || '').trim();
-    const branchId = args.branchId ? String(args.branchId).trim() : undefined;
+    // Server-enforced scope: model-supplied branch IDs are ignored.
+    const branchId = KARBALA_BRANCH_ID;
 
     const branches: BranchStock[] = await context.salesAdapter.checkStock(productId, branchId);
     const totalAvailable = branches.reduce((sum, b) => sum + (b.available ? b.quantity : 0), 0);
@@ -287,14 +288,14 @@ const calculateInstallmentsTool: ToolDefinition = {
  */
 const createOrderDraftTool: ToolDefinition = {
   name: 'create_order_draft',
-  descriptionAr: 'إنشاء مسودة طلب وحجز المخزون مؤقتاً في الفرع المطلوب وحساب الإجمالي.',
-  descriptionEn: 'Create an order draft, temporarily reserve branch stock, and calculate subtotal/total.',
+  descriptionAr: 'إنشاء مسودة طلب وحجز المخزون مؤقتاً في فرع كربلاء وحساب الإجمالي.',
+  descriptionEn: 'Create an order draft, temporarily reserve Karbala branch stock, and calculate subtotal/total.',
   parameters: {
     type: 'object',
     properties: {
       items: {
         type: 'array',
-        description: 'Array of items with productId, quantity, and branchId',
+        description: 'Array of items with productId and quantity (branch is always Karbala)',
       },
       deliveryFeeIQD: {
         type: 'number',
@@ -304,7 +305,7 @@ const createOrderDraftTool: ToolDefinition = {
     required: ['items'],
   },
   execute: async (args, context) => {
-    const rawItems = (args.items as Array<{ productId: string; quantity: number; branchId: string }>) || [];
+    const rawItems = (args.items as Array<{ productId: string; quantity: number }>) || [];
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
       throw new Error('items array must contain at least one item');
     }
@@ -314,7 +315,7 @@ const createOrderDraftTool: ToolDefinition = {
       rawItems.map((i) => ({
         productId: String(i.productId),
         quantity: Number(i.quantity) || 1,
-        branchId: String(i.branchId),
+        branchId: KARBALA_BRANCH_ID,
       }))
     );
 
@@ -322,7 +323,7 @@ const createOrderDraftTool: ToolDefinition = {
       return {
         success: false,
         reservationId: null,
-        error: 'بعض المنتجات المطلوبة غير متوفرة بالكمية المطلوبة في الفرع المحدد',
+        error: 'بعض المنتجات المطلوبة غير متوفرة بالكمية المطلوبة في فرع كربلاء',
         reservationItems: reservationResult.items,
       };
     }
@@ -343,7 +344,7 @@ const createOrderDraftTool: ToolDefinition = {
         quantity: item.quantity,
         unitPriceIQD: unitPrice,
         subtotalIQD: itemSubtotal,
-        branchId: item.branchId,
+        branchId: KARBALA_BRANCH_ID,
       });
     }
 
