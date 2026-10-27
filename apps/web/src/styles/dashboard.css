@@ -1,0 +1,823 @@
+/* ===================== Staff Dashboard (/dashboard) ===================== */
+
+.dashboard-root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.dashboard-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px 320px minmax(400px, 1fr) 300px;
+  min-height: calc(100dvh - 33px);
+  overflow: hidden;
+}
+
+/* -------------------------------------------------------------
+ * 1. Main Navigation Sidebar (Right in RTL)
+ * ------------------------------------------------------------- */
+.dash-sidebar {
+  background: var(--surface);
+  border-inline-end: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) var(--space-3);
+  gap: var(--space-4);
+  user-select: none;
+}
+
+.dash-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2);
+}
+
+.dash-store-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dash-store-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dash-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.dash-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-align: start;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.dash-nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.dash-nav-item:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.dash-nav-item.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--primary) 70%, transparent);
+}
+
+.dash-nav-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dash-summary-card {
+  margin-top: auto;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dash-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dash-summary-val {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.dash-summary-sub {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dash-user-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.dash-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.dash-user-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-user-role {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* -------------------------------------------------------------
+ * 2. Conversations List Column
+ * ------------------------------------------------------------- */
+.dash-convs-col {
+  background: var(--surface);
+  border-inline-end: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dash-convs-head {
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dash-convs-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dash-convs-title-group h2 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.dash-convs-search {
+  padding: 0 var(--space-4) var(--space-3);
+  position: relative;
+}
+
+.dash-convs-search svg {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  inset-inline-start: 26px;
+  width: 16px;
+  height: 16px;
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+
+.dash-convs-search input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: var(--text-xs);
+  color: var(--text);
+  transition: border-color var(--dur-fast);
+}
+
+.dash-convs-search input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.dash-filters-tabs {
+  display: flex;
+  padding: 0 var(--space-4) var(--space-3);
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-filter-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border-radius: var(--radius-xs);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: center;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.dash-filter-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.dash-filter-btn.active {
+  background: var(--surface-2);
+  color: var(--primary);
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.dash-convs-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-conv-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  text-align: start;
+  width: 100%;
+  transition: background var(--dur-fast);
+}
+
+.dash-conv-card:hover {
+  background: var(--surface-2);
+}
+
+.dash-conv-card.active {
+  background: var(--primary-soft);
+  border-inline-start: 3px solid var(--primary);
+}
+
+.dash-conv-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.dash-conv-avatar-alt {
+  background: var(--accent);
+}
+
+.dash-conv-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dash-conv-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dash-conv-name {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-conv-time {
+  font-size: var(--text-xs);
+  color: var(--text-subtle);
+}
+
+.dash-conv-preview {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-conv-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.dash-unread-badge {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: var(--radius-pill);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+/* -------------------------------------------------------------
+ * 3. Chat / Center Column
+ * ------------------------------------------------------------- */
+.dash-chat-col {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-inline-end: 1px solid var(--border);
+}
+
+.dash-chat-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-center-title h1 {
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.dash-center-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dash-metrics-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dash-metric-pill {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: var(--text-xs);
+}
+
+.dash-metric-pill dt {
+  color: var(--text-muted);
+}
+
+.dash-metric-pill dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.dash-chat-active-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-customer-target {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dash-customer-target h2 {
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.dash-customer-status-line {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dash-chat-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dash-messages-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--surface-2);
+}
+
+/* Sender blocks */
+.msg-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+  gap: 4px;
+}
+
+.msg-row-customer {
+  align-self: flex-start;
+}
+
+.msg-row-ai {
+  align-self: flex-end;
+}
+
+.msg-row-staff {
+  align-self: flex-end;
+}
+
+.msg-row-note {
+  align-self: stretch;
+  max-width: 100%;
+}
+
+.msg-meta-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.msg-bubble-customer {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-start-start-radius: 4px;
+}
+
+.msg-bubble-ai {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-start-end-radius: 4px;
+  box-shadow: var(--shadow-sm);
+}
+
+.msg-bubble-staff {
+  background: var(--primary-soft);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  border-start-end-radius: 4px;
+}
+
+.msg-note-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--note-bg);
+  border: 1px solid var(--note-border);
+  border-radius: var(--radius-sm);
+  color: var(--note-text);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.msg-note-box svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* Attached mini product inside message */
+.msg-product-attachment {
+  margin-top: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.msg-prod-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-3);
+  display: grid;
+  place-items: center;
+  color: var(--text-subtle);
+  flex: none;
+}
+
+.msg-prod-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.msg-prod-title {
+  font-weight: 600;
+  font-size: var(--text-xs);
+}
+
+.msg-prod-price {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: var(--text-xs);
+}
+
+.dash-composer-area {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dash-quick-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-x: auto;
+}
+
+.dash-composer-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.dash-composer-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+  font-size: var(--text-sm);
+}
+
+.dash-composer-box input:focus {
+  outline: none;
+}
+
+/* -------------------------------------------------------------
+ * 4. Customer Details Panel (Left in RTL)
+ * ------------------------------------------------------------- */
+.dash-details-col {
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+
+.dash-details-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dash-details-head h2 {
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.dash-customer-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-customer-avatar-lg {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 800;
+  font-size: var(--text-xl);
+  display: grid;
+  place-items: center;
+}
+
+.dash-customer-name-lg {
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+
+.dash-customer-sub {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dash-customer-tags {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+
+.dash-section-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-section-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.dash-prop-list {
+  display: grid;
+  gap: 8px;
+  font-size: var(--text-xs);
+  margin: 0;
+}
+
+.dash-prop-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dash-prop-row dt {
+  color: var(--text-muted);
+}
+
+.dash-prop-row dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.dash-products-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dash-product-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.dash-product-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-3);
+  display: grid;
+  place-items: center;
+  color: var(--text-subtle);
+  flex: none;
+}
+
+.dash-product-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-product-title {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-product-price {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.dash-stock-note {
+  font-size: 11px;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.dash-escalation-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+.dash-escalation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.dash-escalation-body {
+  font-size: var(--text-xs);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.dash-escalation-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+
+/* -------------------------------------------------------------
+ * 5. Responsive Styles
+ * ------------------------------------------------------------- */
+@media (max-width: 1200px) {
+  .dashboard-layout {
+    grid-template-columns: 200px 280px minmax(360px, 1fr);
+  }
+
+  .dash-details-col {
+    display: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .dashboard-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dash-sidebar {
+    display: none;
+  }
+
+  .dash-convs-col {
+    display: none;
+  }
+}

@@ -1,0 +1,121 @@
+/*
+ * Design tokens for the 0-D1a skeleton.
+ *
+ * Official design tokens are deferred to Phase 1 (see PROJECT_STATE.md). These values are
+ * DERIVED by eye from the reference screenshots in design/ (blue primary, teal accent,
+ * navy dark mode) and are expected to be replaced by the official token set in Phase 1.
+ */
+
+:root {
+  --font-sans: var(--font-plex-arabic), 'Segoe UI', Tahoma, system-ui, sans-serif;
+
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  --text-xs: 0.72rem;
+  --text-sm: 0.82rem;
+  --text-md: 0.92rem;
+  --text-lg: 1.05rem;
+  --text-xl: 1.3rem;
+  --text-2xl: 1.6rem;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 140ms;
+  --dur-med: 260ms;
+
+  --header-h: 68px;
+}
+
+/* ---------- Light (default) ---------- */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f5f7fb;
+  --bg-glow: radial-gradient(1200px 600px at 85% -10%, rgba(37, 84, 230, 0.08), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(16, 179, 160, 0.07), transparent 60%);
+  --surface: #ffffff;
+  --surface-2: #f1f4f9;
+  --surface-3: #e9eef6;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --text-subtle: #94a3b8;
+
+  --primary: #1f4fd8;
+  --primary-hover: #1a43bb;
+  --primary-soft: #e8eefc;
+  --on-primary: #ffffff;
+  --accent: #0fae9b;
+  --accent-soft: #e3f7f3;
+
+  --success: #15934a;
+  --success-soft: #e6f6ec;
+  --danger: #dc3545;
+  --danger-soft: #fdecee;
+  --warning: #b45309;
+  --warning-soft: #fff3dc;
+  --note-bg: #fff7e0;
+  --note-border: #f3d48a;
+  --note-text: #7a5300;
+
+  --demo: #7c3aed;
+  --demo-soft: #f1eafe;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 6px 24px -8px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 24px 60px -20px rgba(15, 23, 42, 0.22);
+  --focus-ring: 0 0 0 3px rgba(31, 79, 216, 0.28);
+}
+
+/* ---------- Dark ---------- */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a1120;
+  --bg-glow: radial-gradient(1200px 600px at 85% -10%, rgba(37, 99, 235, 0.16), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(20, 184, 166, 0.1), transparent 60%);
+  --surface: #101a2c;
+  --surface-2: #16223a;
+  --surface-3: #1c2a45;
+  --border: #22314d;
+  --border-strong: #2f4166;
+  --text: #e7ecf5;
+  --text-muted: #91a0bb;
+  --text-subtle: #64748f;
+
+  --primary: #2b62f0;
+  --primary-hover: #3b71ff;
+  --primary-soft: #1a2c55;
+  --on-primary: #ffffff;
+  --accent: #1fc7b1;
+  --accent-soft: #0f3a3a;
+
+  --success: #34d27a;
+  --success-soft: #10301f;
+  --danger: #f05463;
+  --danger-soft: #3a1820;
+  --warning: #f5b544;
+  --warning-soft: #3a2a10;
+  --note-bg: #3a2c0c;
+  --note-border: #6b5216;
+  --note-text: #f7d98a;
+
+  --demo: #b391ff;
+  --demo-soft: #2a1f4a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 28px -10px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 28px 70px -24px rgba(0, 0, 0, 0.7);
+  --focus-ring: 0 0 0 3px rgba(59, 113, 255, 0.4);
+}
