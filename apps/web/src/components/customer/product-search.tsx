@@ -404,3 +404,4 @@ export function CustomerProductSearch({
     </section>
   );
 }
+
