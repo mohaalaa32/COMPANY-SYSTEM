@@ -1,6 +1,7 @@
 import { brand } from '@tel/config/brand';
 import { BrandMark, DemoBanner, DemoBadge } from '@/components/brand';
 import { CompareTable, ProductMiniCard, ProductRowCard } from '@/components/customer/product-cards';
+import { CustomerProductSearch } from '@/components/customer/product-search';
 import {
   IconBag,
   IconBot,
@@ -12,12 +13,18 @@ import {
   IconShield,
 } from '@/components/icons';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { CUSTOMER_PREVIEW, DEMO_BRANCH, getDemoProduct } from '@/lib/demo-data';
+import {
+  CUSTOMER_PREVIEW,
+  DEMO_BRANCH,
+  getDemoProduct,
+  searchCustomerCatalog,
+} from '@/lib/demo-data';
 
-export default function CustomerPage() {
+export default async function CustomerPage() {
   const suggestions = CUSTOMER_PREVIEW.suggestionIds.map(getDemoProduct);
   const accessory = getDemoProduct(CUSTOMER_PREVIEW.accessoryId);
   const compared = CUSTOMER_PREVIEW.compareIds.map(getDemoProduct);
+  const initialSearch = await searchCustomerCatalog({});
 
   return (
     <div className="customer-page">
@@ -173,6 +180,13 @@ export default function CustomerPage() {
           </ul>
         </aside>
       </main>
+
+      <div className="customer-catalog-container">
+        <CustomerProductSearch
+          initialItems={initialSearch.items}
+          branchNameAr={DEMO_BRANCH.nameAr}
+        />
+      </div>
     </div>
   );
 }

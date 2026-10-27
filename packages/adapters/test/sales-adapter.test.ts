@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   MockSalesAdapter,
   normalizeArabicSearchText,
+  BRAND_SEARCH_ALIASES,
+  resolveCanonicalBrand,
+  canonicalizeSearchToken,
   MOCK_PRODUCTS,
 } from '../src/index';
 
@@ -18,6 +21,22 @@ describe('Sales Adapter (MockSalesAdapter)', () => {
       expect(normalizeArabicSearchText('إِنْفِينِكْس')).toBe('انفينكس');
       expect(normalizeArabicSearchText('شَاشَةٌ')).toBe('شاشه');
       expect(normalizeArabicSearchText('ذَكِيّ')).toBe('ذكي');
+      expect(normalizeArabicSearchText('آيفون ١٦ برو')).toBe('ايفون 16 برو');
+    });
+
+    it('resolves common Iraqi and Franco brand spellings without loose matching', () => {
+      expect(Object.keys(BRAND_SEARCH_ALIASES)).toEqual(
+        expect.arrayContaining(['Apple', 'Samsung', 'Xiaomi', 'Infinix', 'Tecno', 'Anker'])
+      );
+      expect(resolveCanonicalBrand('سامسونك')).toBe('Samsung');
+      expect(resolveCanonicalBrand('samsong')).toBe('Samsung');
+      expect(resolveCanonicalBrand('انفنكس')).toBe('Infinix');
+      expect(resolveCanonicalBrand('شياومي')).toBe('Xiaomi');
+      expect(resolveCanonicalBrand('xaomi')).toBe('Xiaomi');
+      expect(resolveCanonicalBrand('تكنو')).toBe('Tecno');
+      expect(resolveCanonicalBrand('سوني')).toBeNull();
+      expect(canonicalizeSearchToken('كالكسي')).toBe('galaxy');
+      expect(canonicalizeSearchToken('ردمي')).toBe('redmi');
     });
   });
 

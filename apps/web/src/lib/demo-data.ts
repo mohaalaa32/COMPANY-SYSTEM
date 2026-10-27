@@ -12,7 +12,18 @@
  * SERVER-SIDE ONLY: imports the raw mock catalog (which includes cost prices). Client components
  * must receive `ProductView` objects produced by `toProductView` instead.
  */
-import { KARBALA_BRANCH_ID, MOCK_BRANCHES, MOCK_PRODUCTS, type Product } from '@tel/adapters';
+import {
+  KARBALA_BRANCH_ID,
+  MOCK_BRANCHES,
+  MOCK_PRODUCTS,
+  MockSalesAdapter,
+  type Product,
+} from '@tel/adapters';
+import type {
+  CustomerProductItem,
+  CustomerSearchFilters,
+  CustomerSearchResponse,
+} from './customer-search';
 import type { DemoConversation, ProductView } from './dashboard-model';
 
 export const IS_DEMO = true as const;
@@ -53,6 +64,78 @@ export function toProductView(product: Product): ProductView {
     nameEn: product.nameEn,
     priceIQD: displayPriceIQD(product),
     karbalaQty: karbalaQuantity(product),
+  };
+}
+
+/**
+ * Shared read-only adapter instance connected to the system's single catalog in @tel/adapters.
+ */
+const demoSalesAdapter = new MockSalesAdapter();
+
+/**
+ * Converts a catalog Product to a display-safe CustomerProductItem for the customer search UI.
+ * - Strips `costIQD` and margin fields completely.
+ * - Preserves the original `nameAr`, `nameEn`, and `sku` without merging distinct SKUs.
+ * - Reads stock exclusively for `branch-karbala`.
+ * - Uses only catalog-verified `warrantyMonths` without inventing agency or source claims.
+ */
+export function toCustomerProductItem(product: Product): CustomerProductItem {
+  const effectivePrice = displayPriceIQD(product);
+  const qty = karbalaQuantity(product);
+  const karbalaBranch = product.branches.find((b) => b.branchId === KARBALA_BRANCH_ID);
+  const isAvailableInKarbala = Boolean(karbalaBranch && karbalaBranch.available && qty > 0);
+
+  return {
+    id: product.id,
+    sku: product.sku,
+    nameAr: product.nameAr,
+    nameEn: product.nameEn,
+    brand: product.brand,
+    category: product.category,
+    priceIQD: effectivePrice,
+    basePriceIQD: product.basePriceIQD,
+    hasDiscount: product.salePriceIQD !== undefined && product.salePriceIQD < product.basePriceIQD,
+    karbalaQty: qty,
+    isAvailableInKarbala,
+    warrantyMonths: product.specs.warrantyMonths,
+    specs: {
+      ...(product.specs.storage ? { storage: product.specs.storage } : {}),
+      ...(product.specs.ram ? { ram: product.specs.ram } : {}),
+      ...(product.specs.battery ? { battery: product.specs.battery } : {}),
+      ...(product.specs.color ? { color: product.specs.color } : {}),
+    },
+  };
+}
+
+/**
+ * Executes a customer product search through the system's existing `ISalesAdapter.searchProducts`
+ * path, restricted strictly to the Karbala branch, and returns display-safe items.
+ */
+export async function searchCustomerCatalog(
+  filters: CustomerSearchFilters = {}
+): Promise<CustomerSearchResponse> {
+  const products = await demoSalesAdapter.searchProducts({
+    query: filters.query,
+    brand: filters.brand,
+    minPriceIQD: filters.minPriceIQD,
+    maxPriceIQD: filters.maxPriceIQD,
+    // When inStockOnly is enabled, filter via the adapter's branch stock check for Karbala.
+    branchId: filters.inStockOnly ? KARBALA_BRANCH_ID : undefined,
+  });
+
+  // Enforce Karbala-only branch scope even when showing out-of-stock Karbala items
+  const karbalaScoped = products.filter((p) =>
+    p.branches.some((b) => b.branchId === KARBALA_BRANCH_ID)
+  );
+
+  const items = karbalaScoped.map(toCustomerProductItem);
+
+  return {
+    items,
+    total: items.length,
+    branchId: DEMO_BRANCH.id,
+    branchNameAr: DEMO_BRANCH.nameAr,
+    isDemoData: true,
   };
 }
 
