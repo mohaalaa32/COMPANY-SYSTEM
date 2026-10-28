@@ -119,10 +119,14 @@ export interface PendingDraft {
   draftOrderId: string;
 }
 
+const DRAFT_MODIFICATION_REGEX =
+  /(اغير|غير|تغيير|بدل|تبديل|تعديل|عدل|ضيف|اضف|اضافه|احذف|شيل|الغي|الغاء)/;
+
 /**
  * A draft is "pending review" only when it was created in an EARLIER turn AND the assistant
- * replied after it (i.e. the customer saw the review), and it was not confirmed since.
- * This blocks draft+confirm in the same turn.
+ * replied after it (i.e. the customer saw the review), and it was not confirmed or invalidated
+ * by a customer modification request since.
+ * This blocks draft+confirm in the same turn and rejects stale approvals after draft modification.
  */
 export function findPendingDraft(history: AIMessage[]): PendingDraft | null {
   let draftIndex = -1;
@@ -159,6 +163,12 @@ export function findPendingDraft(history: AIMessage[]): PendingDraft | null {
     }
   });
   if (confirmedAfter) return null;
+
+  const modifiedAfter = after.some((m) => {
+    if (m.role !== 'user') return false;
+    return DRAFT_MODIFICATION_REGEX.test(normalizeIraqiText(m.content));
+  });
+  if (modifiedAfter) return null;
 
   return { draftOrderId };
 }

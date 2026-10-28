@@ -81,7 +81,8 @@
 
 ### ب) قيد الإنجاز حالياً والملفات المتبقية (In Progress & Missing):
 - اكتملت الدفعات **0-D1a** و**0-D1b** ودفعة تثبيت الهوية و**0-D1c** بنجاح.
-- الخطوة التالية المباشرة: **0-D2** (منصة التقييم الأولي في `packages/eval` مع 50+ سيناريو حواري عراقي).
+- **نقطة التوقف في 0-D2 (WIP):** تم البدء بتهيئة حزمة التقييم `packages/eval` (`package.json`, `tsconfig.json`, `src/types.ts`) وتعزيز إبطال المسودات القديمة بعد طلب التعديل في `packages/ai/src/persona/conversation.ts` و`packages/ai/test/persona.test.ts`.
+- **المتبقي لاستكمال 0-D2:** كتابة سيناريوهات التقييم العراقية (50+ سيناريو عبر الفئات العشر) في `packages/eval/src/scenarios.ts`، ومحرك التقييم والاختبار السلبي (Canary) في `packages/eval/src/evaluator.ts` و`src/cli.ts` و`src/index.ts`، واختبارات الوحدة في `packages/eval/test/eval-harness.test.ts`، ثم تشغيل الفحوصات وإغلاق الدفعة.
 
 ### ج) الخطوات القادمة (Next):
 1. **0-D2**: منصة التقييم الأولي (50+ سيناريو حواري عراقي).

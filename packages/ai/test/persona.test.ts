@@ -140,6 +140,14 @@ describe('Iraqi Sales Persona & Conversation Lifecycle (0-C3)', () => {
         },
       ];
       expect(findPendingDraft(historyConfirmed)).toBeNull();
+
+      // Scenario D: Customer asks to modify the draft -> prior draft is invalidated (stale) until new draft is created
+      const historyModifiedWithoutNewDraft: AIMessage[] = [
+        ...historyReviewed,
+        { role: 'user', content: 'اريد اغير الجهاز او اضف شاحن ويا الطلب' },
+        { role: 'assistant', content: 'تدلل، شنو تحب نعدل بالطلب؟' },
+      ];
+      expect(findPendingDraft(historyModifiedWithoutNewDraft)).toBeNull();
     });
   });
 

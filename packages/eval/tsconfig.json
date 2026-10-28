@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@tel/ai": ["../ai/src/index.ts"],
+      "@tel/adapters": ["../adapters/src/index.ts"],
+      "@tel/calc": ["../calc/src/index.ts"],
+      "@tel/config": ["../../config/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*", "test/**/*"]
+}
