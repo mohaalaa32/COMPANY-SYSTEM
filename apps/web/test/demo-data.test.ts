@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { KARBALA_BRANCH_ID } from '@tel/adapters';
+import { brand } from '@tel/config/brand';
 import {
   CUSTOMER_PREVIEW,
   dashboardProductViews,
@@ -11,6 +12,24 @@ import {
 import { filterConversations } from '../src/lib/dashboard-model';
 
 describe('demo-data integrity and single-branch restriction', () => {
+  it('enforces official Tel Baghdad brand identity, taglines, logo, and color tokens', () => {
+    expect(brand.nameAr).toBe('تِل بغداد');
+    expect(brand.customerTaglineAr).toBe('مساعد المبيعات');
+    expect(brand.staffTaglineAr).toBe('لوحة الموظفين');
+    expect(brand.logo.src).toBe('/brand/gold-logo.png');
+    expect(brand.colors).toEqual({
+      primaryBurgundy: '#5F160F',
+      darkBurgundy: '#420D09',
+      goldAccent: '#D4AF37',
+      lightBgIvory: '#FAF7F2',
+      lightSurfaceWhite: '#FFFFFF',
+      lightTextDark: '#2B211F',
+      darkBg: '#1B1110',
+      darkSurface: '#2A1917',
+      darkTextLight: '#F7F2EA',
+    });
+  });
+
   it('restricts the deployment branch to Karbala only', () => {
     expect(DEMO_BRANCH.id).toBe(KARBALA_BRANCH_ID);
     expect(DEMO_BRANCH.city).toBe('كربلاء');

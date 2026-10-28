@@ -74,12 +74,14 @@
 
 .side-card-icon-primary {
   background: var(--primary-soft);
-  color: var(--primary);
+  color: var(--primary-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .side-card-icon-accent {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .side-card-body {
@@ -193,7 +195,7 @@
   padding: var(--space-4) var(--space-4) var(--space-5);
   max-height: min(64dvh, 720px);
   overflow-y: auto;
-  background: linear-gradient(180deg, var(--surface-2), var(--surface) 30%);
+  background-color: var(--surface-2);
 }
 
 .preview-notice {
@@ -275,7 +277,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #fff 0 18%, transparent 20%), var(--accent);
+  background-color: var(--primary);
+  border: 2px solid var(--accent);
 }
 
 /* ---------- Product cards ---------- */
@@ -337,7 +340,7 @@
 
 .product-price {
   font-weight: 700;
-  color: var(--primary);
+  color: var(--primary-ink);
   white-space: nowrap;
 }
 
@@ -402,7 +405,7 @@
 }
 
 .compare-table thead th {
-  color: var(--primary);
+  color: var(--primary-ink);
   font-weight: 700;
 }
 
@@ -513,7 +516,7 @@
   align-self: center;
   border: 0;
   background: none;
-  color: var(--primary);
+  color: var(--primary-ink);
   font-size: var(--text-sm);
   font-weight: 600;
   text-decoration: underline;
@@ -540,7 +543,21 @@
 
 @media (max-width: 640px) {
   .site-header-inner {
-    padding: 0 var(--space-4);
+    padding: 0 var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .site-header-inner .brand {
+    gap: var(--space-2);
+  }
+
+  .site-header-inner .brand-logo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .site-header-inner .brand-name {
+    font-size: var(--text-md);
   }
 
   .header-track {
@@ -779,8 +796,8 @@
 
 .catalog-feedback-loading {
   background: var(--primary-soft);
-  color: var(--primary);
-  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  color: var(--primary-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 @keyframes catalog-spin {

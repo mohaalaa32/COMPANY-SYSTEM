@@ -1,9 +1,10 @@
 /*
- * Design tokens for the 0-D1a skeleton.
- *
- * Official design tokens are deferred to Phase 1 (see PROJECT_STATE.md). These values are
- * DERIVED by eye from the reference screenshots in design/ (blue primary, teal accent,
- * navy dark mode) and are expected to be replaced by the official token set in Phase 1.
+ * Design tokens for Tel Baghdad (تِل بغداد) — approved UI color palette:
+ * - Primary Burgundy: #5F160F
+ * - Dark Burgundy:    #420D09
+ * - Gold Accent:      #D4AF37 (limited detail/accent only)
+ * - Light Mode:       #FAF7F2 (bg), #FFFFFF (surface), #2B211F (text)
+ * - Dark Mode:        #1B1110 (bg), #2A1917 (surface), #F7F2EA (text)
  */
 
 :root {
@@ -41,24 +42,26 @@
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: #f5f7fb;
-  --bg-glow: radial-gradient(1200px 600px at 85% -10%, rgba(37, 84, 230, 0.08), transparent 60%),
-    radial-gradient(900px 500px at 0% 110%, rgba(16, 179, 160, 0.07), transparent 60%);
-  --surface: #ffffff;
-  --surface-2: #f1f4f9;
-  --surface-3: #e9eef6;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
+  --bg: #FAF7F2;
+  --bg-glow: none;
+  --surface: #FFFFFF;
+  --surface-2: #F4EFE6;
+  --surface-3: #EBE3D5;
+  --border: #E2D9C8;
+  --border-strong: #CBBBA2;
+  --text: #2B211F;
+  --text-muted: #655450;
+  --text-subtle: #8C7A75;
 
-  --primary: #1f4fd8;
-  --primary-hover: #1a43bb;
-  --primary-soft: #e8eefc;
-  --on-primary: #ffffff;
-  --accent: #0fae9b;
-  --accent-soft: #e3f7f3;
+  --primary: #5F160F;
+  --primary-hover: #420D09;
+  --primary-soft: #F5E9E7;
+  --primary-ink: #5F160F;
+  --on-primary: #FFFFFF;
+  --accent: #D4AF37;
+  --accent-soft: #FBF5E2;
+  --accent-ink: #6B5310;
+  --on-accent: #2B211F;
 
   --success: #15934a;
   --success-soft: #e6f6ec;
@@ -70,36 +73,38 @@
   --note-border: #f3d48a;
   --note-text: #7a5300;
 
-  --demo: #7c3aed;
-  --demo-soft: #f1eafe;
+  --demo: #5F160F;
+  --demo-soft: #F5E9E7;
 
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-md: 0 6px 24px -8px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
-  --shadow-lg: 0 24px 60px -20px rgba(15, 23, 42, 0.22);
-  --focus-ring: 0 0 0 3px rgba(31, 79, 216, 0.28);
+  --shadow-sm: 0 1px 2px rgba(43, 33, 31, 0.06);
+  --shadow-md: 0 6px 24px -8px rgba(43, 33, 31, 0.12), 0 2px 6px rgba(43, 33, 31, 0.04);
+  --shadow-lg: 0 24px 60px -20px rgba(43, 33, 31, 0.22);
+  --focus-ring: 0 0 0 3px rgba(95, 22, 15, 0.28);
 }
 
 /* ---------- Dark ---------- */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #0a1120;
-  --bg-glow: radial-gradient(1200px 600px at 85% -10%, rgba(37, 99, 235, 0.16), transparent 60%),
-    radial-gradient(900px 500px at 0% 110%, rgba(20, 184, 166, 0.1), transparent 60%);
-  --surface: #101a2c;
-  --surface-2: #16223a;
-  --surface-3: #1c2a45;
-  --border: #22314d;
-  --border-strong: #2f4166;
-  --text: #e7ecf5;
-  --text-muted: #91a0bb;
-  --text-subtle: #64748f;
+  --bg: #1B1110;
+  --bg-glow: none;
+  --surface: #2A1917;
+  --surface-2: #35201D;
+  --surface-3: #422824;
+  --border: #4A2E2A;
+  --border-strong: #633F3A;
+  --text: #F7F2EA;
+  --text-muted: #C8B8B2;
+  --text-subtle: #9A8882;
 
-  --primary: #2b62f0;
-  --primary-hover: #3b71ff;
-  --primary-soft: #1a2c55;
-  --on-primary: #ffffff;
-  --accent: #1fc7b1;
-  --accent-soft: #0f3a3a;
+  --primary: #5F160F;
+  --primary-hover: #420D09;
+  --primary-soft: #3B1A16;
+  --primary-ink: #D4AF37;
+  --on-primary: #F7F2EA;
+  --accent: #D4AF37;
+  --accent-soft: #382E18;
+  --accent-ink: #D4AF37;
+  --on-accent: #2B211F;
 
   --success: #34d27a;
   --success-soft: #10301f;
@@ -111,11 +116,11 @@
   --note-border: #6b5216;
   --note-text: #f7d98a;
 
-  --demo: #b391ff;
-  --demo-soft: #2a1f4a;
+  --demo: #D4AF37;
+  --demo-soft: #352915;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 8px 28px -10px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 28px 70px -24px rgba(0, 0, 0, 0.7);
-  --focus-ring: 0 0 0 3px rgba(59, 113, 255, 0.4);
+  --shadow-lg: 0 28px 70px -24px rgba(0, 0, 0, 0.72);
+  --focus-ring: 0 0 0 3px rgba(212, 175, 55, 0.38);
 }

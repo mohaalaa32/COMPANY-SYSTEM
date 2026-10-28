@@ -93,7 +93,7 @@ export function DashboardView({
         {/* ----------------- 1. Sidebar (Right in RTL) ----------------- */}
         <aside className="dash-sidebar" aria-label="شريط التنقل الرئيسي">
           <div className="dash-sidebar-brand">
-            <BrandMark tagline="لوحة إدارة المبيعات" />
+            <BrandMark tagline={brand.staffTaglineAr} />
           </div>
 
           <div className="dash-store-selector">
@@ -222,9 +222,14 @@ export function DashboardView({
         <main className="dash-chat-col" aria-label="نافذة المحادثة النشطة">
           {/* Top Bar with Metrics */}
           <header className="dash-chat-topbar">
-            <div className="dash-center-title">
-              <h1>مركز خدمة العملاء</h1>
-              <span className="dash-center-subtitle">مراقبة الذكاء الاصطناعي والمحادثات المباشرة</span>
+            <div className="dash-topbar-start">
+              <div className="dash-mobile-brand">
+                <BrandMark tagline={brand.staffTaglineAr} />
+              </div>
+              <div className="dash-center-title">
+                <h1>مركز خدمة العملاء</h1>
+                <span className="dash-center-subtitle">مراقبة الذكاء الاصطناعي والمحادثات المباشرة</span>
+              </div>
             </div>
             <div className="dash-metrics-bar">
               <dl className="dash-metric-pill">

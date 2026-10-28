@@ -23,8 +23,7 @@ body {
   font-size: var(--text-md);
   line-height: 1.6;
   color: var(--text);
-  background: var(--bg-glow), var(--bg);
-  background-attachment: fixed;
+  background-color: var(--bg);
   -webkit-font-smoothing: antialiased;
   transition: background-color var(--dur-med) var(--ease-out), color var(--dur-med) var(--ease-out);
 }
@@ -56,7 +55,7 @@ textarea:disabled {
 }
 
 a {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 :focus-visible {
@@ -107,10 +106,12 @@ a {
 .btn-primary {
   background: var(--primary);
   color: var(--on-primary);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .btn-primary:not(:disabled):hover {
   background: var(--primary-hover);
+  border-color: var(--accent);
 }
 
 .btn-secondary {
@@ -202,12 +203,14 @@ a {
 
 .badge-primary {
   background: var(--primary-soft);
-  color: var(--primary);
+  color: var(--primary-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .badge-accent {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .badge-demo {
@@ -252,36 +255,48 @@ a {
   gap: var(--space-3);
   text-decoration: none;
   color: inherit;
+  min-width: 0;
 }
 
 .brand-logo {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: linear-gradient(140deg, var(--primary), color-mix(in srgb, var(--primary) 60%, var(--accent)));
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
-  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--primary) 70%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background-color: #ffffff;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: var(--shadow-sm);
+  padding: 2px;
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: none;
 }
 
 .brand-text {
   display: flex;
   flex-direction: column;
   line-height: 1.25;
+  min-width: 0;
 }
 
 .brand-name {
   font-weight: 700;
   font-size: var(--text-lg);
+  white-space: nowrap;
 }
 
 .brand-tagline {
   font-size: var(--text-xs);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* ---------- Product thumbnail (no real images yet) ---------- */
@@ -290,7 +305,7 @@ a {
   place-items: center;
   aspect-ratio: 16 / 10;
   border-radius: var(--radius-sm);
-  background: linear-gradient(160deg, var(--surface-2), var(--surface-3));
+  background: var(--surface-2);
   color: var(--text-subtle);
 }
 
@@ -309,13 +324,14 @@ a {
   height: 42px;
   border-radius: 50%;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-weight: 700;
   font-size: var(--text-sm);
 }
 
 .avatar-accent {
   background: var(--accent);
+  color: var(--on-accent);
 }
 
 /* ---------- Motion ---------- */

@@ -1,11 +1,17 @@
 import { brand } from '@tel/config/brand';
 import { IconFlask } from './icons';
 
-export function BrandMark({ tagline = brand.productAr }: { tagline?: string }) {
+export function BrandMark({ tagline = brand.customerTaglineAr }: { tagline?: string }) {
   return (
     <span className="brand">
-      <span className="brand-logo" aria-hidden="true">
-        {brand.monogram}
+      <span className="brand-logo">
+        <img
+          src={brand.logo.src}
+          alt={brand.logo.altAr}
+          width={48}
+          height={48}
+          className="brand-logo-img"
+        />
       </span>
       <span className="brand-text">
         <span className="brand-name">{brand.nameAr}</span>

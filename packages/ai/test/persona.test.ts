@@ -218,7 +218,7 @@ describe('Iraqi Sales Persona & Conversation Lifecycle (0-C3)', () => {
     it('enforces single Karbala branch and blocks other branches', () => {
       const prompt = buildSalesSystemPrompt({ dataMode: 'mock' });
       expect(prompt).toContain('فرع كربلاء فقط');
-      expect(prompt).toContain('تل بغداد');
+      expect(prompt).toContain('تِل بغداد');
       expect(prompt).not.toContain('المنصور');
       expect(prompt).not.toContain('الكرادة');
       expect(prompt).not.toContain('أربيل');

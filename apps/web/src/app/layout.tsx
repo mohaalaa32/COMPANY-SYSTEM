@@ -21,6 +21,10 @@ export const metadata: Metadata = {
   },
   description: `${brand.fullTitleAr}: مساعد يساعدك تختار الموبايل والإكسسوارات المناسبة من فرع كربلاء باللهجة العراقية.`,
   applicationName: brand.fullTitleAr,
+  icons: {
+    icon: [{ url: brand.logo.src, type: 'image/png' }],
+    apple: [{ url: brand.logo.src, type: 'image/png' }],
+  },
   // Pre-release skeleton with demo data: keep it out of search indexes.
   robots: { index: false, follow: false },
 };
@@ -29,8 +33,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f5f7fb' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a1120' },
+    { media: '(prefers-color-scheme: light)', color: brand.colors.lightBgIvory },
+    { media: '(prefers-color-scheme: dark)', color: brand.colors.darkBg },
   ],
 };
 

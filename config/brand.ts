@@ -7,12 +7,33 @@
  */
 export const brand = {
   /** Company name (Arabic) */
-  nameAr: 'تل بغداد',
+  nameAr: 'تِل بغداد',
   /** Company name (English) */
   nameEn: 'Tel Baghdad',
   /** Product name */
   productAr: 'مساعد المبيعات الذكي',
   productEn: 'AI Sales Assistant',
+  /** Secondary subtitle in the customer header (/) */
+  customerTaglineAr: 'مساعد المبيعات',
+  /** Secondary subtitle in the staff dashboard brand area (/dashboard) */
+  staffTaglineAr: 'لوحة الموظفين',
+  /** Official logo asset metadata */
+  logo: {
+    src: '/brand/gold-logo.png',
+    altAr: 'شعار تِل بغداد',
+  },
+  /** Approved UI color palette for the Tel Baghdad identity */
+  colors: {
+    primaryBurgundy: '#5F160F',
+    darkBurgundy: '#420D09',
+    goldAccent: '#D4AF37',
+    lightBgIvory: '#FAF7F2',
+    lightSurfaceWhite: '#FFFFFF',
+    lightTextDark: '#2B211F',
+    darkBg: '#1B1110',
+    darkSurface: '#2A1917',
+    darkTextLight: '#F7F2EA',
+  },
   /** Full product title used in <title>, headers and the persona */
   get fullTitleAr(): string {
     return `${this.productAr} لـ ${this.nameAr}`;
