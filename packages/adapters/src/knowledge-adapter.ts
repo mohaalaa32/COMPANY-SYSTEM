@@ -1876,3 +1876,4 @@ export class SqliteKnowledgeStore implements IKnowledgeBaseReader {
     return filtered.slice(0, limit);
   }
 }
+

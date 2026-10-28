@@ -850,3 +850,4 @@ export function KnowledgeBasePanel({
     </div>
   );
 }
+

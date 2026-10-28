@@ -136,3 +136,4 @@ export const STAFF_ROLE_LABELS_AR: Record<StaffRole, string> = {
   STAFF: 'موظف مبيعات',
   SUPERVISOR: 'مشرف معتمد',
 };
+

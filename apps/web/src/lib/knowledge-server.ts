@@ -289,3 +289,4 @@ export function mapKnowledgeErrorToHttpResponse(err: unknown): {
 }
 
 export type { KnowledgeCategory, KnowledgeStatus };
+

@@ -360,3 +360,4 @@ describe('SqliteKnowledgeStore (0-D1c)', () => {
     store.close();
   });
 });
+
