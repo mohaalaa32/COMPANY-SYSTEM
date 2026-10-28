@@ -40,6 +40,32 @@ enum PaymentMethod {
   CARD_ON_DELIVERY
 }
 
+enum StaffRole {
+  STAFF
+  SUPERVISOR
+}
+
+enum KnowledgeCategory {
+  FAQ
+  OBJECTION_REPLY
+  PRODUCT_NOTE
+}
+
+enum KnowledgeStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PUBLISHED
+  REJECTED
+  WITHDRAWN
+}
+
+enum KnowledgeRevisionStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
 model Customer {
   id             String         @id @default(cuid())
   phone          String         @unique
@@ -155,4 +181,111 @@ model ConversationOutcome {
   createdAt          DateTime     @default(now())
 
   @@map("conversation_outcomes")
+}
+
+model KnowledgeEntry {
+  id               String              @id @default(cuid())
+  category         KnowledgeCategory
+  status           KnowledgeStatus     @default(DRAFT)
+  titleAr          String
+  contentAr        String
+  triggerKeywords  String[]
+  productIds       String[]
+  branchId         String              @default("branch-karbala")
+  publishedVersion Int                 @default(0)
+  rejectionReason  String?
+  createdById      String
+  createdByNameAr  String
+  createdByRole    StaffRole
+  updatedById      String
+  updatedByNameAr  String
+  updatedByRole    StaffRole
+  submittedById    String?
+  submittedByNameAr String?
+  submittedAt      DateTime?
+  reviewedById     String?
+  reviewedByNameAr String?
+  reviewedAt       DateTime?
+  publishedAt      DateTime?
+  withdrawnById    String?
+  withdrawnByNameAr String?
+  withdrawnAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  revisions        KnowledgeRevision[]
+  auditLogs        KnowledgeAuditLog[]
+  sourceFeedbacks  AiReplyFeedback[]
+
+  @@index([status])
+  @@index([category])
+  @@map("knowledge_entries")
+}
+
+model KnowledgeRevision {
+  id                String                  @id @default(cuid())
+  entryId           String
+  entry             KnowledgeEntry          @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  status            KnowledgeRevisionStatus @default(DRAFT)
+  titleAr           String
+  contentAr         String
+  triggerKeywords   String[]
+  productIds        String[]
+  rejectionReason   String?
+  createdById       String
+  createdByNameAr   String
+  createdByRole     StaffRole
+  updatedById       String
+  updatedByNameAr   String
+  updatedByRole     StaffRole
+  submittedById     String?
+  submittedByNameAr String?
+  submittedAt       DateTime?
+  reviewedById      String?
+  reviewedByNameAr  String?
+  reviewedAt        DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@index([entryId, status])
+  @@map("knowledge_revisions")
+}
+
+model KnowledgeAuditLog {
+  id          String         @id @default(cuid())
+  entryId     String
+  entry       KnowledgeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  action      String
+  actorId     String
+  actorNameAr String
+  actorRole   StaffRole
+  fromStatus  String?
+  toStatus    String?
+  summaryAr   String
+  reasonAr    String?
+  createdAt   DateTime       @default(now())
+
+  @@index([entryId])
+  @@map("knowledge_audit_logs")
+}
+
+model AiReplyFeedback {
+  id                     String             @id @default(cuid())
+  conversationId         String
+  messageId              String
+  originalAiText         String
+  correctedReplyAr       String
+  notesAr                String?
+  category               KnowledgeCategory?
+  productIds             String[]
+  linkedKnowledgeEntryId String?
+  linkedKnowledgeEntry   KnowledgeEntry?    @relation(fields: [linkedKnowledgeEntryId], references: [id], onDelete: SetNull)
+  createdById            String
+  createdByNameAr        String
+  createdByRole          StaffRole
+  createdAt              DateTime           @default(now())
+
+  @@index([conversationId])
+  @@index([messageId])
+  @@map("ai_reply_feedbacks")
 }

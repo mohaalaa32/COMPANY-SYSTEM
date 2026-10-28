@@ -5,6 +5,7 @@ import type {
   ToolCallRequest,
   ToolCallResponse,
   NumberVerificationResult,
+  PublishedKnowledgeItem,
 } from './types';
 import { getAllToolDefinitions, executeToolCall, isAllowedToolName } from './tools/registry';
 import { verifyResponseNumbers } from './guard/number-guard';
@@ -40,6 +41,7 @@ export interface AgentTurnResult {
   stage: ConversationStage;
   profile: CustomerProfile;
   handoffSuggestion: HandoffSuggestion | null;
+  retrievedKnowledge: PublishedKnowledgeItem[];
   messages: AIMessage[];
 }
 
@@ -94,6 +96,12 @@ export class SalesAIAgent {
         ? { approved: true, draftOrderId: pendingDraft.draftOrderId }
         : undefined;
     const turnContext: ToolExecutionContext = { ...this.context, orderApproval: approval };
+    const retrievedKnowledge: PublishedKnowledgeItem[] = this.context.knowledgeBase
+      ? this.context.knowledgeBase.getPublishedForAssistant({
+          query: userMessage,
+          limit: 5,
+        })
+      : [];
 
     const systemPrompt =
       this.systemPrompt ||
@@ -102,6 +110,7 @@ export class SalesAIAgent {
         deliveryPolicyConfigured: Boolean(this.context.deliveryPolicy),
         stage,
         profile,
+        publishedKnowledge: retrievedKnowledge,
       });
 
     const conversation: AIMessage[] = [
@@ -219,6 +228,7 @@ export class SalesAIAgent {
       stage,
       profile,
       handoffSuggestion,
+      retrievedKnowledge,
       messages: conversation,
     };
   }

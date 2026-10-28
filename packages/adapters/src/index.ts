@@ -8,3 +8,4 @@ export * from './types';
 export * from './data/index';
 export * from './sales-adapter';
 export * from './whatsapp-adapter';
+export * from './knowledge-adapter';

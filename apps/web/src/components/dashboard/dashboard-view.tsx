@@ -32,12 +32,29 @@ import {
   type ProductView,
 } from '@/lib/dashboard-model';
 import { formatIQD, initialsAr } from '@/lib/format';
+import {
+  STAFF_ROLE_LABELS_AR,
+  type AiReplyFeedbackView,
+  type CatalogProductOptionView,
+  type KnowledgeAuditLogView,
+  type KnowledgeEntryView,
+  type StaffSessionView,
+} from '@/lib/knowledge-model';
+import { KnowledgeBasePanel } from './knowledge-base-panel';
 
 interface DashboardViewProps {
   initialConversations: DemoConversation[];
   products: Record<string, ProductView>;
   staffUser: { nameAr: string; roleAr: string };
   demoBranch: { nameAr: string; city: string };
+  initialStaffSession: StaffSessionView;
+  availableDevAccounts: StaffSessionView[];
+  initialKnowledgeState: {
+    entries: KnowledgeEntryView[];
+    auditLogs: KnowledgeAuditLogView[];
+    feedbacks: AiReplyFeedbackView[];
+    catalogOptions: CatalogProductOptionView[];
+  };
 }
 
 export function DashboardView({
@@ -45,7 +62,29 @@ export function DashboardView({
   products,
   staffUser,
   demoBranch,
+  initialStaffSession,
+  availableDevAccounts,
+  initialKnowledgeState,
 }: DashboardViewProps) {
+  const [activeSection, setActiveSection] = useState<'conversations' | 'knowledge'>('conversations');
+  const [currentStaff, setCurrentStaff] = useState<StaffSessionView>(initialStaffSession);
+  const [kbEntries, setKbEntries] = useState<KnowledgeEntryView[]>(initialKnowledgeState.entries);
+  const [kbAuditLogs, setKbAuditLogs] = useState<KnowledgeAuditLogView[]>(
+    initialKnowledgeState.auditLogs
+  );
+  const [kbFeedbacks, setKbFeedbacks] = useState<AiReplyFeedbackView[]>(
+    initialKnowledgeState.feedbacks
+  );
+
+  // Inline AI-reply correction state inside active conversation
+  const [correctingMsgId, setCorrectingMsgId] = useState<string | null>(null);
+  const [correctedReplyText, setCorrectedReplyText] = useState('');
+  const [correctionNotesText, setCorrectionNotesText] = useState('');
+  const [createDraftFromCorrection, setCreateDraftFromCorrection] = useState(true);
+  const [correctionBusy, setCorrectionBusy] = useState(false);
+  const [correctionFeedbackNotice, setCorrectionFeedbackNotice] = useState<string | null>(null);
+  const [correctionErrorNotice, setCorrectionErrorNotice] = useState<string | null>(null);
+
   const [conversations, setConversations] = useState<DemoConversation[]>(initialConversations);
   const [selectedId, setSelectedId] = useState<string>(initialConversations[0]?.id ?? '');
   const [activeFilter, setActiveFilter] = useState<ConversationFilterId>('all');
@@ -75,7 +114,7 @@ export function DashboardView({
       prev.map((c) => {
         if (c.id !== activeConv.id) return c;
         const nextStatus = c.status === 'STAFF_TAKEOVER' ? 'AI_ACTIVE' : 'STAFF_TAKEOVER';
-        const nextAssignee = nextStatus === 'STAFF_TAKEOVER' ? staffUser.nameAr : undefined;
+        const nextAssignee = nextStatus === 'STAFF_TAKEOVER' ? currentStaff.nameAr : undefined;
         return {
           ...c,
           status: nextStatus,
@@ -83,6 +122,59 @@ export function DashboardView({
         };
       })
     );
+  };
+
+  const pendingApprovalsCount = useMemo(
+    () =>
+      kbEntries.filter(
+        (e) =>
+          e.status === 'PENDING_APPROVAL' || e.pendingRevision?.status === 'PENDING_APPROVAL'
+      ).length,
+    [kbEntries]
+  );
+
+  const handleSubmitAiCorrection = async (conversationId: string, messageId: string) => {
+    setCorrectionBusy(true);
+    setCorrectionFeedbackNotice(null);
+    setCorrectionErrorNotice(null);
+    try {
+      const res = await fetch('/api/knowledge/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId,
+          messageId,
+          correctedReplyAr: correctedReplyText,
+          notesAr: correctionNotesText,
+          createDraftEntry: createDraftFromCorrection,
+        }),
+      });
+      const data = (await res.json()) as {
+        entries?: KnowledgeEntryView[];
+        feedbacks?: AiReplyFeedbackView[];
+        auditLogs?: KnowledgeAuditLogView[];
+        messageAr?: string;
+      };
+      if (!res.ok || !data.entries || !data.feedbacks || !data.auditLogs) {
+        setCorrectionErrorNotice(data.messageAr ?? 'تعذر حفظ تصحيح الرد على الخادم.');
+        return;
+      }
+      setKbEntries(data.entries);
+      setKbFeedbacks(data.feedbacks);
+      setKbAuditLogs(data.auditLogs);
+      setCorrectingMsgId(null);
+      setCorrectedReplyText('');
+      setCorrectionNotesText('');
+      setCorrectionFeedbackNotice(
+        createDraftFromCorrection
+          ? 'تم تسجيل تصحيح الرد كتغذية راجعة مرتبطة بالرسالة، وأُنشئت مسودة في قاعدة المعرفة بانتظار المراجعة (لا تُنشر تلقائياً ولا تغيّر أوزان النموذج).'
+          : 'تم تسجيل تصحيح الرد كتغذية راجعة مرتبطة بالرسالة (لا يُنشر تلقائياً ولا يغيّر أوزان النموذج).'
+      );
+    } catch {
+      setCorrectionErrorNotice('حدث خطأ في الاتصال بالخادم أثناء حفظ تصحيح الرد.');
+    } finally {
+      setCorrectionBusy(false);
+    }
   };
 
   return (
@@ -109,13 +201,29 @@ export function DashboardView({
               <IconGrid />
               <span>لوحة التحكم</span>
             </button>
-            <button type="button" className="dash-nav-item active" aria-current="page">
+            <button
+              type="button"
+              className={`dash-nav-item ${activeSection === 'conversations' ? 'active' : ''}`}
+              aria-current={activeSection === 'conversations' ? 'page' : undefined}
+              onClick={() => setActiveSection('conversations')}
+            >
               <IconChat />
               <span>المحادثات المباشرة</span>
             </button>
-            <button type="button" className="dash-nav-item" disabled title="غير متاح بالمعاينة">
+            <button
+              type="button"
+              id="nav-knowledge-base-btn"
+              className={`dash-nav-item ${activeSection === 'knowledge' ? 'active' : ''}`}
+              aria-current={activeSection === 'knowledge' ? 'page' : undefined}
+              onClick={() => setActiveSection('knowledge')}
+            >
               <IconBox />
-              <span>المنتجات والمخزون</span>
+              <span>تعليم المساعد (المعرفة)</span>
+              {pendingApprovalsCount > 0 && (
+                <span className="dash-unread-badge" title="بانتظار موافقة المشرف">
+                  {pendingApprovalsCount}
+                </span>
+              )}
             </button>
             <button type="button" className="dash-nav-item" disabled title="غير متاح بالمعاينة">
               <IconChart />
@@ -129,18 +237,22 @@ export function DashboardView({
 
           <div className="dash-summary-card">
             <div className="dash-summary-head">
-              <span>ملخص اليوم</span>
-              <span className="badge badge-success badge-dot">مباشر</span>
+              <span>قاعدة المعرفة</span>
+              <span className="badge badge-success badge-dot">فرع كربلاء</span>
             </div>
-            <div className="dash-summary-val">128</div>
-            <div className="dash-summary-sub">محادثة · 84% حل تلقائي</div>
+            <div className="dash-summary-val">{kbEntries.length}</div>
+            <div className="dash-summary-sub">
+              {pendingApprovalsCount} بانتظار المشرف · {kbFeedbacks.length} تصحيح مسجل
+            </div>
           </div>
 
           <div className="dash-user-profile">
-            <div className="avatar avatar-accent">{initialsAr(staffUser.nameAr)}</div>
+            <div className="avatar avatar-accent">{initialsAr(currentStaff.nameAr)}</div>
             <div className="dash-user-info">
-              <span className="dash-user-name">{staffUser.nameAr}</span>
-              <span className="dash-user-role">{staffUser.roleAr}</span>
+              <span className="dash-user-name">{currentStaff.nameAr}</span>
+              <span className="dash-user-role">
+                {STAFF_ROLE_LABELS_AR[currentStaff.role]} ({staffUser.roleAr})
+              </span>
             </div>
             <Link href="/" className="icon-btn" title="الرجوع لواجهة العميل" aria-label="الرجوع لواجهة العميل">
               <IconLogout />
@@ -149,7 +261,11 @@ export function DashboardView({
         </aside>
 
         {/* ----------------- 2. Conversation List Column ----------------- */}
-        <section className="dash-convs-col" aria-label="قائمة المحادثات">
+        <section
+          className="dash-convs-col"
+          aria-label="قائمة المحادثات"
+          style={activeSection === 'knowledge' ? { display: 'none' } : undefined}
+        >
           <header className="dash-convs-head">
             <div className="dash-convs-title-group">
               <h2>المحادثات</h2>
@@ -218,31 +334,56 @@ export function DashboardView({
           </div>
         </section>
 
-        {/* ----------------- 3. Chat / Monitoring Column ----------------- */}
-        <main className="dash-chat-col" aria-label="نافذة المحادثة النشطة">
-          {/* Top Bar with Metrics */}
+        {/* ----------------- 3. Chat / Monitoring or Knowledge Base Column ----------------- */}
+        <main
+          className="dash-chat-col"
+          aria-label={activeSection === 'knowledge' ? 'إدارة قاعدة المعرفة' : 'نافذة المحادثة النشطة'}
+          style={activeSection === 'knowledge' ? { gridColumn: '2 / -1' } : undefined}
+        >
+          {/* Top Bar with Metrics & Section Switcher */}
           <header className="dash-chat-topbar">
             <div className="dash-topbar-start">
               <div className="dash-mobile-brand">
                 <BrandMark tagline={brand.staffTaglineAr} />
               </div>
               <div className="dash-center-title">
-                <h1>مركز خدمة العملاء</h1>
-                <span className="dash-center-subtitle">مراقبة الذكاء الاصطناعي والمحادثات المباشرة</span>
+                <h1>
+                  {activeSection === 'knowledge'
+                    ? 'قاعدة معرفة الموظفين وتصحيح ردود المساعد'
+                    : 'مركز خدمة العملاء'}
+                </h1>
+                <span className="dash-center-subtitle">
+                  {activeSection === 'knowledge'
+                    ? 'مسودة ← مراجعة مشرف ← نشر لفرع كربلاء (مع سجل تدقيق وتغذية راجعة)'
+                    : 'مراقبة الذكاء الاصطناعي والمحادثات المباشرة'}
+                </span>
               </div>
             </div>
             <div className="dash-metrics-bar">
+              <button
+                type="button"
+                className={`btn ${activeSection === 'conversations' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setActiveSection('conversations')}
+              >
+                المحادثات
+              </button>
+              <button
+                type="button"
+                className={`btn ${activeSection === 'knowledge' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setActiveSection('knowledge')}
+              >
+                <span>قاعدة المعرفة</span>
+                {pendingApprovalsCount > 0 && (
+                  <span className="badge badge-warning">{pendingApprovalsCount}</span>
+                )}
+              </button>
               <dl className="dash-metric-pill">
                 <dt>معدل الحل</dt>
                 <dd style={{ color: 'var(--success)' }}>84%</dd>
               </dl>
               <dl className="dash-metric-pill">
-                <dt>وقت الرد</dt>
-                <dd>42ث</dd>
-              </dl>
-              <dl className="dash-metric-pill">
-                <dt>بانتظار موظف</dt>
-                <dd style={{ color: 'var(--warning)' }}>6</dd>
+                <dt>بانتظار مشرف</dt>
+                <dd style={{ color: 'var(--warning)' }}>{pendingApprovalsCount}</dd>
               </dl>
               <ThemeToggle />
               <button type="button" className="icon-btn" disabled aria-label="الإشعارات (غير متاحة)">
@@ -253,6 +394,27 @@ export function DashboardView({
               </button>
             </div>
           </header>
+
+          {activeSection === 'knowledge' ? (
+            <KnowledgeBasePanel
+              initialEntries={kbEntries}
+              initialAuditLogs={kbAuditLogs}
+              initialFeedbacks={kbFeedbacks}
+              catalogOptions={initialKnowledgeState.catalogOptions}
+              currentStaff={currentStaff}
+              availableDevAccounts={availableDevAccounts}
+              onStaffSessionChange={setCurrentStaff}
+              externalEntries={kbEntries}
+              externalAuditLogs={kbAuditLogs}
+              externalFeedbacks={kbFeedbacks}
+              onStateSync={(next) => {
+                setKbEntries(next.entries);
+                setKbAuditLogs(next.auditLogs);
+                if (next.feedbacks) setKbFeedbacks(next.feedbacks);
+              }}
+            />
+          ) : (
+            <>
 
           {/* Active Conversation Header */}
           {activeConv && (
@@ -289,8 +451,23 @@ export function DashboardView({
           <div className="dash-messages-view">
             <div className="preview-notice" role="note">
               <IconInfo />
-              <span>هذه بيانات تجريبية ثابتة لمراقبة سلوك المساعد والمحادثة. الإرسال الفعلي غير مفعّل.</span>
+              <span>
+                هذه بيانات تجريبية لمراقبة سلوك المساعد والمحادثة. يمكنك تسجيل «تصحيح رد المساعد»
+                كتغذية راجعة مرتبطة بالرسالة الفعلية.
+              </span>
             </div>
+
+            {correctionFeedbackNotice && (
+              <div className="kb-feedback-success" role="status">
+                <span>{correctionFeedbackNotice}</span>
+              </div>
+            )}
+
+            {correctionErrorNotice && (
+              <div className="catalog-feedback catalog-feedback-error" role="alert">
+                <span>{correctionErrorNotice}</span>
+              </div>
+            )}
 
             {activeConv?.messages.map((msg) => {
               if (msg.sender === 'INTERNAL_NOTE') {
@@ -306,6 +483,7 @@ export function DashboardView({
 
               const isCustomer = msg.sender === 'CUSTOMER';
               const isStaff = msg.sender === 'STAFF';
+              const isAi = msg.sender === 'AI';
               const bubbleClass = isCustomer
                 ? 'msg-bubble-customer'
                 : isStaff
@@ -318,6 +496,8 @@ export function DashboardView({
                 ? 'msg-row-staff'
                 : 'msg-row-ai';
 
+              const isCorrectingThis = isAi && correctingMsgId === msg.id;
+
               return (
                 <div key={msg.id} className={`msg-row ${rowClass} animate-in`}>
                   <div className="msg-meta-line">
@@ -326,6 +506,25 @@ export function DashboardView({
                     <span>{SENDER_LABEL_AR[msg.sender]}</span>
                     <span>·</span>
                     <span>{msg.timeLabel}</span>
+                    {isAi && activeConv && (
+                      <button
+                        type="button"
+                        className="msg-correct-trigger"
+                        onClick={() => {
+                          setCorrectionFeedbackNotice(null);
+                          setCorrectionErrorNotice(null);
+                          if (isCorrectingThis) {
+                            setCorrectingMsgId(null);
+                          } else {
+                            setCorrectingMsgId(msg.id);
+                            setCorrectedReplyText(msg.text);
+                            setCorrectionNotesText('');
+                          }
+                        }}
+                      >
+                        {isCorrectingThis ? 'إغلاق التصحيح' : 'تصحيح رد المساعد'}
+                      </button>
+                    )}
                   </div>
                   <div className={`msg-bubble ${bubbleClass}`}>
                     <p>{msg.text}</p>
@@ -349,6 +548,61 @@ export function DashboardView({
                         </div>
                       );
                     })}
+
+                    {isCorrectingThis && activeConv && (
+                      <div className="msg-correction-box">
+                        <div className="msg-correction-title">
+                          تسجيل تصحيح لرد المساعد ({activeConv.id} / {msg.id})
+                        </div>
+                        <p className="msg-correction-sub">
+                          يُحفظ التصحيح كتغذية راجعة مرتبطة بهذه الرسالة؛ لا يُنشر تلقائياً ولا يدرّب
+                          أوزان النموذج.
+                        </p>
+                        <textarea
+                          rows={3}
+                          value={correctedReplyText}
+                          disabled={correctionBusy}
+                          onChange={(e) => setCorrectedReplyText(e.target.value)}
+                          placeholder="اكتب الصياغة الأصح لرد المساعد..."
+                          aria-label="الصياغة المصححة لرد المساعد"
+                        />
+                        <input
+                          type="text"
+                          value={correctionNotesText}
+                          disabled={correctionBusy}
+                          onChange={(e) => setCorrectionNotesText(e.target.value)}
+                          placeholder="ملاحظة للمشرف حول سبب التصحيح (اختياري)..."
+                          aria-label="ملاحظة حول سبب التصحيح"
+                        />
+                        <label className="msg-correction-check">
+                          <input
+                            type="checkbox"
+                            checked={createDraftFromCorrection}
+                            disabled={correctionBusy}
+                            onChange={(e) => setCreateDraftFromCorrection(e.target.checked)}
+                          />
+                          <span>إنشاء مسودة في قاعدة المعرفة لمراجعة المشرف (لا تُنشر تلقائياً)</span>
+                        </label>
+                        <div className="msg-correction-actions">
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={correctionBusy}
+                            onClick={() => void handleSubmitAiCorrection(activeConv.id, msg.id)}
+                          >
+                            حفظ التغذية الراجعة
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            disabled={correctionBusy}
+                            onClick={() => setCorrectingMsgId(null)}
+                          >
+                            إلغاء
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -383,10 +637,12 @@ export function DashboardView({
               </button>
             </div>
           </footer>
+            </>
+          )}
         </main>
 
         {/* ----------------- 4. Customer Details Column ----------------- */}
-        {activeConv && (
+        {activeConv && activeSection === 'conversations' && (
           <aside className="dash-details-col" aria-label="تفاصيل العميل والطلب">
             <div className="dash-details-head">
               <h2>تفاصيل العميل</h2>

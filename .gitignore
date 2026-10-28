@@ -13,6 +13,11 @@ playwright-report/
 test-results/
 packages/db/src/generated/
 packages/eval/reports/*.json
+.data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
 .venv/
 __pycache__/
 *.pyc

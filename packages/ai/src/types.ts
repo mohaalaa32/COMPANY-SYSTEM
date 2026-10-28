@@ -3,8 +3,15 @@
  * Strictly adheres to docs/CONTRACTS.md §4 and system architecture.
  */
 
-import type { ISalesAdapter, IWhatsAppAdapter } from '@tel/adapters';
+import type {
+  IKnowledgeBaseReader,
+  ISalesAdapter,
+  IWhatsAppAdapter,
+  PublishedKnowledgeItem,
+} from '@tel/adapters';
 import type { ICalcEngine } from '@tel/calc';
+
+export type { IKnowledgeBaseReader, PublishedKnowledgeItem };
 
 // ============================================================================
 // §4. AI Tool Calling Contracts (docs/CONTRACTS.md)
@@ -67,6 +74,8 @@ export interface ToolExecutionContext {
   dataMode?: 'mock' | 'live';
   deliveryPolicy?: DeliveryPolicy;
   orderApproval?: OrderApproval;
+  /** Optional read-only handle to retrieve supervisor-approved PUBLISHED knowledge entries. */
+  knowledgeBase?: IKnowledgeBaseReader;
 }
 
 export interface ToolParameterProperty {
