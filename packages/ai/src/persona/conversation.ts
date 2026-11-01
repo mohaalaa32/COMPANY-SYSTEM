@@ -166,7 +166,7 @@ export function findPendingDraft(history: AIMessage[]): PendingDraft | null {
 
   const modifiedAfter = after.some((m) => {
     if (m.role !== 'user') return false;
-    return DRAFT_MODIFICATION_REGEX.test(normalizeIraqiText(m.content));
+    return DRAFT_MODIFICATION_REGEX.test(normalizeForMatching(m.content));
   });
   if (modifiedAfter) return null;
 

@@ -135,6 +135,31 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
 
+  packages/eval:
+    dependencies:
+      '@tel/adapters':
+        specifier: workspace:*
+        version: link:../adapters
+      '@tel/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@tel/calc':
+        specifier: workspace:*
+        version: link:../calc
+      '@tel/config':
+        specifier: workspace:*
+        version: link:../../config
+    devDependencies:
+      '@types/node':
+        specifier: 24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.1.12
+        version: 4.1.12(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2)(jiti@2.7.0))
+
 packages:
 
   '@babel/code-frame@7.29.7':

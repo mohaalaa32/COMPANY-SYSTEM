@@ -1,11 +1,10 @@
 import type {
   AIMessage,
-  AIProviderResponse,
-  AgentProcessResult,
-  KnowledgeStore,
+  AgentTurnResult,
+  LLMResponse,
   ToolExecutionContext,
 } from '@tel/ai';
-import type { MockSalesAdapter, MockWhatsAppAdapter } from '@tel/adapters';
+import type { MockSalesAdapter, MockWhatsAppAdapter, SqliteKnowledgeStore } from '@tel/adapters';
 
 export type EvalCategory =
   | 'budget_numbers_dialect_usage'
@@ -56,20 +55,20 @@ export interface EvalRuntimeContext {
   toolContext: ToolExecutionContext;
   salesAdapter: MockSalesAdapter;
   whatsAppAdapter: MockWhatsAppAdapter;
-  knowledgeStore: KnowledgeStore;
+  knowledgeStore?: SqliteKnowledgeStore;
   systemPromptSnapshot: string;
 }
 
 export interface EvalTurnInput {
   userMessage: string;
-  mockLLMResponses?: Array<Partial<AIProviderResponse>>;
+  mockLLMResponses?: Array<Partial<LLMResponse>>;
   beforeTurn?: (runtime: EvalRuntimeContext) => Promise<void> | void;
 }
 
 export interface EvalTurnTrace {
   turnIndex: number;
   userMessage: string;
-  result: AgentProcessResult;
+  result: AgentTurnResult;
 }
 
 export interface EvalCriterionVerification {
@@ -90,7 +89,7 @@ export interface EvalScenario {
   descriptionAr: string;
   expectedBehaviorAr: string;
   initialContext?: {
-    dataMode?: 'mock' | 'production';
+    dataMode?: 'mock' | 'live';
     deliveryPolicy?: { feeIQD: number };
     seedHistory?: AIMessage[];
     setup?: (runtime: EvalRuntimeContext) => Promise<void> | void;
@@ -133,6 +132,7 @@ export interface EvalCategorySummary {
 export interface LiveLLMEvalConfig {
   enabled: boolean;
   providerName?: string;
+  model?: string;
   apiKeyConfigured?: boolean;
   maxRequests: number;
   maxTotalTokens: number;
@@ -170,6 +170,7 @@ export interface EvalReport {
     failedBehavior: number;
     errorEnvironment: number;
     skippedUnconfigured: number;
+    passRatePercent: number;
     totalTurns: number;
     multiTurnScenarios: number;
     totalCriteriaChecked: number;
