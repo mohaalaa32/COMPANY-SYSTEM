@@ -64,10 +64,10 @@ describe('AI Assistant Evaluation Harness (0-D2)', () => {
   });
 
   describe('Canary Verification (Negative Security & Guardrail Fixtures)', () => {
-    it('catches all 4 intentional negative fixtures (hallucinated price, false confirm, premature order, false handoff)', async () => {
+    it('catches all 5 intentional negative fixtures (hallucinated price, false confirm, premature order, false handoff, unapproved knowledge leak)', async () => {
       const canaryResult = await runCanaryVerification();
       expect(canaryResult.allCanariesCaught).toBe(true);
-      expect(canaryResult.results.length).toBe(4);
+      expect(canaryResult.results.length).toBe(5);
 
       for (const res of canaryResult.results) {
         expect(

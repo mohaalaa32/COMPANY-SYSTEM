@@ -30,7 +30,7 @@ function buildAuthenticatedRequest(
 }
 
 describe('Staff Knowledge Base & AI Feedback HTTP Server Routes (0-D1c)', () => {
-  it('rejects unauthenticated or tampered session requests with 401', async () => {
+  it('rejects unauthenticated, tampered, expired, or cross-site session requests with 401 or 403', async () => {
     const unauthReq = buildAuthenticatedRequest('http://localhost:3000/api/knowledge', {
       action: 'create',
       category: 'FAQ',
@@ -52,6 +52,44 @@ describe('Staff Knowledge Base & AI Feedback HTTP Server Routes (0-D1c)', () => 
     );
     const tamperedRes = await knowledgePost(tamperedReq);
     expect(tamperedRes.status).toBe(401);
+
+    // Expired token (> 24 hours ago)
+    const expiredTimestamp = Date.now() - (25 * 60 * 60 * 1000);
+    const expiredToken = createSignedStaffSessionToken('staff-karbala-1', expiredTimestamp);
+    const expiredReq = new Request('http://localhost:3000/api/knowledge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: `${STAFF_SESSION_COOKIE_NAME}=${encodeURIComponent(expiredToken)}`,
+      },
+      body: JSON.stringify({
+        action: 'create',
+        category: 'FAQ',
+        titleAr: 'سؤال تجريبي',
+        contentAr: 'محتوى تجريبي للاختبار.',
+      }),
+    });
+    const expiredRes = await knowledgePost(expiredReq);
+    expect(expiredRes.status).toBe(401);
+
+    // Cross-site request (Sec-Fetch-Site: cross-site) -> 403
+    const validToken = createSignedStaffSessionToken('staff-karbala-1');
+    const crossSiteReq = new Request('http://localhost:3000/api/knowledge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        cookie: `${STAFF_SESSION_COOKIE_NAME}=${encodeURIComponent(validToken)}`,
+        'sec-fetch-site': 'cross-site',
+      },
+      body: JSON.stringify({
+        action: 'create',
+        category: 'FAQ',
+        titleAr: 'سؤال تجريبي',
+        contentAr: 'محتوى تجريبي للاختبار.',
+      }),
+    });
+    const crossSiteRes = await knowledgePost(crossSiteReq);
+    expect(crossSiteRes.status).toBe(403);
   });
 
   it('rejects direct server requests from STAFF attempting supervisor approval/rejection/withdrawal even if body claims SUPERVISOR role', async () => {

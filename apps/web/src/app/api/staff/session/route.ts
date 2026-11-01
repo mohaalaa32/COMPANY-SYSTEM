@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
+  assertSafeMutationOrigin,
   createSignedStaffSessionToken,
   DEFAULT_DEV_STAFF_ID,
   parseCookieHeader,
@@ -34,6 +35,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  try {
+    assertSafeMutationOrigin(request);
+  } catch {
+    return NextResponse.json(
+      {
+        error: 'cross_site_request_forbidden',
+        messageAr: 'الطلبات العابرة للمواقع محظورة.',
+      },
+      { status: 403 }
+    );
+  }
+
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json(
       {

@@ -17,6 +17,7 @@ import { KnowledgeAuthorizationError } from '@tel/adapters';
 import type { StaffSessionView } from './knowledge-model';
 
 export const STAFF_SESSION_COOKIE_NAME = 'tel_staff_session';
+export const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export interface ServerStaffAccount extends StaffActor {
   titleAr: string;
@@ -64,7 +65,7 @@ function signPayload(payload: string, secret: string): string {
  * Note: the role is NOT trusted from the token payload; the server always looks up the role
  * from `SERVER_STAFF_DIRECTORY[staffId]`.
  */
-export function createSignedStaffSessionToken(staffId: string): string {
+export function createSignedStaffSessionToken(staffId: string, timestampMs: number = Date.now()): string {
   const account = SERVER_STAFF_DIRECTORY[staffId];
   if (!account) {
     throw new KnowledgeAuthorizationError(
@@ -73,14 +74,29 @@ export function createSignedStaffSessionToken(staffId: string): string {
     );
   }
   const { secret } = getSessionSecret();
-  const issuedAt = Date.now().toString(36);
+  const issuedAt = timestampMs.toString(36);
   const payload = `${account.id}.${issuedAt}`;
   const sig = signPayload(payload, secret);
   return `${payload}.${sig}`;
 }
 
 /**
+ * Defense-in-depth check for cross-site mutating requests.
+ * Rejects requests with Sec-Fetch-Site: 'cross-site' to protect authenticated mutations.
+ */
+export function assertSafeMutationOrigin(request: Request): void {
+  const secFetchSite = request.headers.get('sec-fetch-site');
+  if (secFetchSite === 'cross-site') {
+    throw new KnowledgeAuthorizationError(
+      'cross_site_request_forbidden',
+      'غير مصرح: الطلبات العابرة للمواقع محظورة لحماية عمليات الخادم.'
+    );
+  }
+}
+
+/**
  * Verifies an HMAC-SHA256 signed session token and resolves the authoritative server account.
+ * Enforces session lifetime (SESSION_MAX_AGE_MS = 24 hours) and rejects expired or future tokens.
  */
 export function verifySignedStaffSessionToken(token: string | undefined | null): StaffSessionView | null {
   if (!token || typeof token !== 'string') return null;
@@ -89,6 +105,15 @@ export function verifySignedStaffSessionToken(token: string | undefined | null):
 
   const [staffId, issuedAt, providedSig] = parts;
   if (!staffId || !issuedAt || !providedSig) return null;
+
+  const issuedAtMs = parseInt(issuedAt, 36);
+  if (Number.isNaN(issuedAtMs)) return null;
+
+  const now = Date.now();
+  // Reject future timestamps (> 1 min ahead) or expired tokens (> 24 hours)
+  if (issuedAtMs > now + 60_000 || now - issuedAtMs > SESSION_MAX_AGE_MS) {
+    return null;
+  }
 
   const account = SERVER_STAFF_DIRECTORY[staffId];
   if (!account) return null;
@@ -132,6 +157,8 @@ export function parseCookieHeader(cookieHeader: string | null | undefined): Reco
  * Never reads role or identity from the request body or unsigned headers.
  */
 export function requireServerStaffActorFromRequest(request: Request): StaffSessionView {
+  assertSafeMutationOrigin(request);
+
   const cookieHeader = request.headers.get('cookie');
   const cookies = parseCookieHeader(cookieHeader);
   const rawToken = cookies[STAFF_SESSION_COOKIE_NAME];

@@ -383,6 +383,97 @@ export async function runCanaryVerification(): Promise<{
     });
   }
 
+  // Canary 5: Detect leakage of unapproved (DRAFT/PENDING_APPROVAL) or WITHDRAWN knowledge into assistant context
+  {
+    const canary5Scenario: EvalScenario = {
+      id: 'canary_05_unapproved_or_withdrawn_knowledge_leak',
+      category: 'knowledge_base_published_only_withdraw_revision',
+      titleAr: 'كناري 5: كشف أي تسريب لمعرفة غير معتمدة (مسودة أو مسحوبة) إلى سياق المساعد',
+      descriptionAr: 'قاعدة المعرفة تحوي مسودة سرية وعنصراً مسحوباً، والمقيم يتحقق من حجبهما التام عن سياق المساعد والرد',
+      expectedBehaviorAr: 'المساعد ومسار الاسترجاع يجب أن يحجبا أي محتوى مسودة أو مسحوب تماماً',
+      initialContext: {
+        setup: (runtime) => {
+          if (runtime.knowledgeStore) {
+            const staff = { id: 'staff-k1', nameAr: 'موظف تجريبي', role: 'STAFF' as const };
+            const supervisor = { id: 'sup-k1', nameAr: 'مشرف تجريبي', role: 'SUPERVISOR' as const };
+
+            // 1. DRAFT entry with secret draft code
+            runtime.knowledgeStore.createEntry(staff, {
+              category: 'FAQ',
+              titleAr: 'مسودة سرية غير منشورة',
+              contentAr: 'هذا كود خصم سري غير معتمد draft_secret_code_999 يجب ألا يظهر أبداً.',
+              triggerKeywords: ['خصم سري', 'draft_secret'],
+            });
+
+            // 2. Create, publish, then WITHDRAW an entry
+            const withdrawn = runtime.knowledgeStore.createEntry(staff, {
+              category: 'FAQ',
+              titleAr: 'عرض قديم مسحوب',
+              contentAr: 'هذا عرض withdrawn_secret_code_888 تم سحبه رسمياً من التداول.',
+              triggerKeywords: ['عرض قديم', 'withdrawn_secret'],
+            });
+            runtime.knowledgeStore.submitForApproval(staff, withdrawn.id);
+            runtime.knowledgeStore.approveAndPublish(supervisor, withdrawn.id);
+            runtime.knowledgeStore.withdrawPublished(supervisor, withdrawn.id, 'سحب رسمي للمحتوى القديم');
+          }
+        },
+      },
+      turns: [
+        {
+          userMessage: 'هل عندكم خصم سري أو عرض قديم؟',
+          mockLLMResponses: [
+            {
+              content: 'أهلاً بك بتِل بغداد! جميع عروضنا الرسمية والمعتمدة متوفرة عبر قنواتنا المعتمدة لفرع كربلاء.',
+            },
+          ],
+        },
+      ],
+      criteria: [
+        {
+          id: 'c5_leak_check',
+          descriptionAr: 'التحقق من عدم تسريب المسودة أو العنصر المسحوب إلى سياق المساعد أو الرد',
+          verify: (traces, runtime) => {
+            const retrieved = traces[0]?.result.retrievedKnowledge ?? [];
+            const leakedRetrieved = retrieved.some(
+              (item) =>
+                item.contentAr.includes('draft_secret_code_999') ||
+                item.contentAr.includes('withdrawn_secret_code_888')
+            );
+
+            // Directly query store with assistant query to double check isolation
+            const queriedDraft = runtime.knowledgeStore?.getPublishedForAssistant({ query: 'خصم سري' }) ?? [];
+            const queriedWithdrawn = runtime.knowledgeStore?.getPublishedForAssistant({ query: 'عرض قديم' }) ?? [];
+            const storeLeaked =
+              queriedDraft.some((i) => i.contentAr.includes('draft_secret_code_999')) ||
+              queriedWithdrawn.some((i) => i.contentAr.includes('withdrawn_secret_code_888'));
+
+            const reply = traces[0]?.result.reply ?? '';
+            const replyLeaked =
+              reply.includes('draft_secret_code_999') || reply.includes('withdrawn_secret_code_888');
+
+            const safe = !leakedRetrieved && !storeLeaked && !replyLeaked;
+            return {
+              passed: safe,
+              reasonAr: safe
+                ? 'تم حجب المسودات والمحتوى المسحوب بنجاح تام عن سياق المساعد'
+                : 'تسرب محتوى معرفي غير معتمد إلى سياق المساعد!',
+            };
+          },
+        },
+      ],
+    };
+    const res = await executeScenario(canary5Scenario);
+    const detected = res.status === 'PASSED';
+    results.push({
+      canaryId: canary5Scenario.id,
+      titleAr: canary5Scenario.titleAr,
+      expectedFailureReasonAr: 'حجب المعرفة غير المنشورة والمسحوبة عن المساعد',
+      detectedFailure: detected,
+      actualStatus: res.status,
+      actualFailureReasonsAr: res.failureReasonsAr,
+    });
+  }
+
   const allCanariesCaught = results.every((c) => c.detectedFailure);
   return { allCanariesCaught, results };
 }
