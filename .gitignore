@@ -24,3 +24,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 *.log
+*.local
+*.local.json
+packages/adapters/test/fixtures/*.raw.json
