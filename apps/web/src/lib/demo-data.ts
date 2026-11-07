@@ -101,7 +101,10 @@ export function toCustomerProductItem(product: Product): CustomerProductItem {
     specs: {
       ...(product.specs.storage ? { storage: product.specs.storage } : {}),
       ...(product.specs.ram ? { ram: product.specs.ram } : {}),
+      ...(product.specs.camera ? { camera: product.specs.camera } : {}),
       ...(product.specs.battery ? { battery: product.specs.battery } : {}),
+      ...(product.specs.screen ? { screen: product.specs.screen } : {}),
+      ...(product.specs.processor ? { processor: product.specs.processor } : {}),
       ...(product.specs.color ? { color: product.specs.color } : {}),
     },
   };

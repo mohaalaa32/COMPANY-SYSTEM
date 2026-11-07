@@ -8,6 +8,7 @@ import type {
   WhatsAppSendResult,
 } from '@tel/adapters';
 import type { BudgetMatchResult, InstallmentPlan } from '@tel/calc';
+import { matchProductsToPriceTargets } from '../persona/conversation';
 import type {
   SalesAIToolName,
   ToolCallRequest,
@@ -157,6 +158,10 @@ const compareProductsTool: ToolDefinition = {
         type: 'array',
         description: 'Array of product IDs to compare (at least 2)',
       },
+      targetPricesIQD: {
+        type: 'array',
+        description: 'Optional customer target prices in IQD used to select or evaluate the compared products',
+      },
     },
     required: ['productIds'],
   },
@@ -177,6 +182,7 @@ const compareProductsTool: ToolDefinition = {
     const comparisonItems = products.map((p) => ({
       id: p.id,
       nameAr: p.nameAr,
+      nameEn: p.nameEn,
       brand: p.brand,
       priceIQD: p.salePriceIQD ?? p.basePriceIQD,
       storage: p.specs.storage || 'غير محدد',
@@ -186,12 +192,51 @@ const compareProductsTool: ToolDefinition = {
       screen: p.specs.screen || 'غير محدد',
       processor: p.specs.processor || 'غير محدد',
       warrantyMonths: p.specs.warrantyMonths,
+      tags: p.tags ?? [],
     }));
+
+    const priceGapIQD =
+      comparisonItems.length >= 2
+        ? Math.abs((comparisonItems[0]?.priceIQD ?? 0) - (comparisonItems[1]?.priceIQD ?? 0))
+        : 0;
+
+    const rawTargets = Array.isArray(args.targetPricesIQD)
+      ? (args.targetPricesIQD as unknown[])
+          .map((n) => Number(n))
+          .filter((n) => Number.isFinite(n) && n >= 10_000)
+      : [];
+
+    if (rawTargets.length > 0) {
+      const catalogPhones = await context.salesAdapter.searchProducts({
+        category: 'phone',
+        branchId: KARBALA_BRANCH_ID,
+      });
+      const targetMatches = matchProductsToPriceTargets(catalogPhones, rawTargets);
+      const altIds = new Set<string>();
+      for (const m of targetMatches) {
+        if (m.matchedProduct) altIds.add(m.matchedProduct.id);
+        for (const alt of m.closestAlternatives) {
+          altIds.add(alt.id);
+        }
+      }
+      const alternativeProducts = catalogPhones.filter((p) => altIds.has(p.id));
+
+      return {
+        comparedCount: products.length,
+        products,
+        comparison: comparisonItems,
+        priceGapIQD,
+        targetPricesIQD: rawTargets,
+        targetMatches,
+        alternativeProducts,
+      };
+    }
 
     return {
       comparedCount: products.length,
       products,
       comparison: comparisonItems,
+      priceGapIQD,
     };
   },
 };

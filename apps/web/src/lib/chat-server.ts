@@ -118,14 +118,34 @@ function extractSafeKarbalaProducts(toolResults: ToolCallResponse[]): {
     target.set(raw.id, toCustomerProductItem(raw));
   };
 
+  let hasComparisonResult = false;
+  let hasFarTargetComparison = false;
+  const alternativeMap = new Map<string, CustomerProductItem>();
+
   for (const res of toolResults) {
     if (!res.success || !res.data) continue;
     const data = res.data;
 
     // 1. Compare products tool output
     if (Array.isArray(data.comparison) && Array.isArray(data.products)) {
-      for (const p of data.products) {
-        addSafeProduct(compareMap, p);
+      hasComparisonResult = true;
+      const targetMatches = Array.isArray(data.targetMatches)
+        ? (data.targetMatches as Array<{ isNear?: boolean }>)
+        : [];
+      const anyFarTarget = targetMatches.some((m) => m.isNear === false);
+
+      if (anyFarTarget) {
+        hasFarTargetComparison = true;
+        const altSource = Array.isArray(data.alternativeProducts)
+          ? data.alternativeProducts
+          : data.products;
+        for (const p of altSource) {
+          addSafeProduct(alternativeMap, p);
+        }
+      } else {
+        for (const p of data.products) {
+          addSafeProduct(compareMap, p);
+        }
       }
       continue;
     }
@@ -156,6 +176,20 @@ function extractSafeKarbalaProducts(toolResults: ToolCallResponse[]): {
         addSafeProduct(productMap, bundle.charger);
       }
     }
+  }
+
+  if (hasFarTargetComparison) {
+    return {
+      products: Array.from(alternativeMap.values()),
+      comparedProducts: [],
+    };
+  }
+
+  if (hasComparisonResult && compareMap.size > 0) {
+    return {
+      products: Array.from(compareMap.values()),
+      comparedProducts: Array.from(compareMap.values()),
+    };
   }
 
   return {

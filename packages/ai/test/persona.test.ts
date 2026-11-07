@@ -6,6 +6,10 @@ import {
   MockLLMProvider,
   buildSalesSystemPrompt,
   extractBudgetIQD,
+  extractTargetPricesIQD,
+  isBestChoiceRequested,
+  matchProductsToPriceTargets,
+  NEAR_PRICE_MAX_RATIO,
   extractCustomerProfile,
   isExplicitOrderApproval,
   findPendingDraft,
@@ -61,6 +65,42 @@ describe('Iraqi Sales Persona & Conversation Lifecycle (0-C3)', () => {
       expect(profile.usages).toContain('gaming');
       expect(profile.usages).toContain('camera');
       expect(profile.brands).toContain('Samsung');
+    });
+
+    it('extracts multiple separate target prices (Western and Arabic-Indic digits) without merging them', () => {
+      const promptWestern =
+        'أريد تجيب لي موبايل سعره 400 ألف وتقارن لي موبايل سعره 500 وياها، وأنت قرر لي يا هو الأفضل';
+      expect(extractTargetPricesIQD(promptWestern)).toEqual([400_000, 500_000]);
+      expect(isBestChoiceRequested(promptWestern)).toBe(true);
+
+      const promptArabicIndic =
+        'أريد تجيب لي موبايل سعره ٤٠٠ ألف وتقارن لي موبايل سعره ٥٠٠ ألف وياها، وأنت قرر لي يا هو الأفضل';
+      expect(extractTargetPricesIQD(promptArabicIndic)).toEqual([400_000, 500_000]);
+      expect(isBestChoiceRequested(promptArabicIndic)).toBe(true);
+    });
+
+    it('applies the Near-Price Policy (±15%) deterministically for available vs unavailable price bands', async () => {
+      const catalogPhones = await salesAdapter.searchProducts({ category: 'phone' });
+      expect(NEAR_PRICE_MAX_RATIO).toBe(0.15);
+
+      // 1. Near devices exist for 400k (Redmi Note 13 Pro+ at 420k) and 500k (Galaxy A55 256GB at 475k)
+      const nearMatches = matchProductsToPriceTargets(catalogPhones, [400_000, 500_000]);
+      expect(nearMatches).toHaveLength(2);
+      expect(nearMatches[0]?.isNear).toBe(true);
+      expect(nearMatches[0]?.matchedProduct?.id).toBe('prod-rn13pro-256');
+      expect(nearMatches[0]?.matchedProduct?.priceIQD).toBe(420_000);
+      expect(nearMatches[1]?.isNear).toBe(true);
+      expect(nearMatches[1]?.matchedProduct?.id).toBe('prod-a55-256');
+      expect(nearMatches[1]?.matchedProduct?.priceIQD).toBe(475_000);
+
+      // 2. No near device exists for 750k (closest are 475k and 1,025,000 -> both > 15% away)
+      const farMatches = matchProductsToPriceTargets(catalogPhones, [400_000, 750_000]);
+      expect(farMatches[0]?.isNear).toBe(true);
+      expect(farMatches[1]?.isNear).toBe(false);
+      expect(farMatches[1]?.matchedProduct).toBeNull();
+      expect(farMatches[1]?.closestAlternatives.map((a) => a.priceIQD)).toEqual([
+        475_000, 1_025_000,
+      ]);
     });
   });
 

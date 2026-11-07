@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 process.env.KB_SQLITE_PATH = ':memory:';
@@ -155,4 +157,124 @@ describe('Customer Interactive Local Chat & /api/chat Route (Batch 1-A1)', () =>
     expect(turn.reply).toContain('تم حجب الرد');
     expect(turn.reply).not.toContain('123,456');
   });
+
+  it('reproduces and resolves the two-price comparison prompt (400k vs 500k) with real near-price catalog phones and conditional recommendation', async () => {
+    const res = await chatPost(
+      buildChatRequest({
+        message:
+          'أريد تجيب لي موبايل سعره 400 ألف وتقارن لي موبايل سعره 500 وياها، وأنت قرر لي يا هو الأفضل',
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as CustomerChatTurnResponse;
+
+    expect(data.isSafe).toBe(true);
+    expect(data.rejected).toBe(false);
+    expect(data.toolsUsed).toEqual(['search_products', 'compare_products']);
+
+    // Selects the actual closest available Karbala phones for 400k (420,000 IQD) and 500k (475,000 IQD),
+    // NOT the unrelated 250,000 and 215,000 IQD phones.
+    expect(data.comparedProducts.map((p) => p.id)).toEqual([
+      'prod-rn13pro-256',
+      'prod-a55-256',
+    ]);
+    expect(data.comparedProducts.map((p) => p.priceIQD)).toEqual([420_000, 475_000]);
+    expect(data.products.map((p) => p.id)).toEqual(['prod-rn13pro-256', 'prod-a55-256']);
+
+    // Reply explains both targets (400,000 and 500,000), their actual prices (420,000 and 475,000),
+    // real specs (12GB vs 8GB, 200MP vs 50MP), conditional recommendation, and asks about usage.
+    expect(data.reply).toContain('400,000');
+    expect(data.reply).toContain('420,000');
+    expect(data.reply).toContain('500,000');
+    expect(data.reply).toContain('475,000');
+    expect(data.reply).not.toContain('250,000');
+    expect(data.reply).not.toContain('215,000');
+    expect(data.reply).toContain('الترشيح المشروط');
+    expect(data.reply).toContain('استخدامك الأساسي');
+
+    for (const item of data.comparedProducts) {
+      expect((item as unknown as Record<string, unknown>).costIQD).toBeUndefined();
+      expect((item as unknown as Record<string, unknown>).minMarginPct).toBeUndefined();
+    }
+  });
+
+  it('handles Arabic-Indic two-price comparison (٤٠٠ ألف vs ٥٠٠ ألف) and tailors recommendation when usage is provided', async () => {
+    const res = await chatPost(
+      buildChatRequest({
+        message:
+          'أريد تجيب لي موبايل سعره ٤٠٠ ألف وتقارن لي موبايل سعره ٥٠٠ ألف وياها للألعاب والتصوير، وأنت قرر لي يا هو الأفضل',
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as CustomerChatTurnResponse;
+
+    expect(data.isSafe).toBe(true);
+    expect(data.rejected).toBe(false);
+    expect(data.comparedProducts.map((p) => p.id)).toEqual([
+      'prod-rn13pro-256',
+      'prod-a55-256',
+    ]);
+    expect(data.reply).toContain('400,000');
+    expect(data.reply).toContain('500,000');
+    expect(data.reply).toContain('أرشحلك شاومي ريدمي نوت 13 برو بلس 5G');
+    expect(data.reply).toContain('12GB');
+  });
+
+  it('explains clearly when no phone is near one of the requested prices and offers real catalog alternatives without inventing prices', async () => {
+    const res = await chatPost(
+      buildChatRequest({
+        message:
+          'أريد موبايل سعره ٤٠٠ ألف وتقارن لي موبايل سعره ٧٥٠ ألف وياها، وأنت قرر لي يا هو الأفضل',
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as CustomerChatTurnResponse;
+
+    expect(data.isSafe).toBe(true);
+    expect(data.rejected).toBe(false);
+    expect(data.toolsUsed).toEqual(['search_products', 'compare_products']);
+
+    // Because 750,000 IQD has no near phone in the catalog (±15%), it does not force a false comparison table;
+    // instead it explains the gap and presents the closest real available alternatives (420k, 475k, 1,025k).
+    expect(data.comparedProducts).toEqual([]);
+    expect(data.products.length).toBeGreaterThanOrEqual(2);
+    expect(data.reply).toContain('400,000');
+    expect(data.reply).toContain('420,000');
+    expect(data.reply).toContain('750,000');
+    expect(data.reply).toContain('لا يتوفر جهاز قريب من هذا السعر');
+    expect(data.reply).toContain('475,000');
+    expect(data.reply).toContain('1,025,000');
+    expect(data.reply).toContain('هل تقبل');
+  });
+
+  it('prevents horizontal clipping in CompareTable via fixed layout and text wrapping across RTL, Light, and Dark modes', () => {
+    const customerCss = readFileSync(
+      join(__dirname, '..', 'src', 'styles', 'customer.css'),
+      'utf-8'
+    );
+    const tokensCss = readFileSync(
+      join(__dirname, '..', 'src', 'styles', 'tokens.css'),
+      'utf-8'
+    );
+    const cardsTsx = readFileSync(
+      join(__dirname, '..', 'src', 'components', 'customer', 'product-cards.tsx'),
+      'utf-8'
+    );
+
+    // Table uses fixed layout and wraps text instead of forcing nowrap overflow
+    expect(customerCss).toContain('table-layout: fixed');
+    expect(customerCss).toContain('overflow-wrap: anywhere');
+    expect(customerCss).toContain('.compare-product-name-ar');
+
+    // CompareTable renders Arabic product names and full spec rows (camera, processor, battery, RAM, storage)
+    expect(cardsTsx).toContain('compare-product-name-ar');
+    expect(cardsTsx).toContain('{p.nameAr}');
+    expect(cardsTsx).toContain('الكاميرا');
+    expect(cardsTsx).toContain('المعالج');
+
+    // Light and Dark theme tokens exist for surface and text contrast
+    expect(tokensCss).toContain(":root[data-theme='light']");
+    expect(tokensCss).toContain(":root[data-theme='dark']");
+  });
 });
+

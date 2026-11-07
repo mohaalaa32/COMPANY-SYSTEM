@@ -58,7 +58,9 @@ const COMPARE_ROWS: Array<{ labelAr: string; get: (p: CustomerProductItem) => st
   { labelAr: 'السعر (تجريبي)', get: (p) => formatIQD(p.priceIQD) },
   { labelAr: 'التخزين', get: (p) => p.specs.storage ?? '—' },
   { labelAr: 'الرام', get: (p) => p.specs.ram ?? '—' },
+  { labelAr: 'الكاميرا', get: (p) => p.specs.camera ?? '—' },
   { labelAr: 'البطارية', get: (p) => p.specs.battery ?? '—' },
+  { labelAr: 'المعالج', get: (p) => p.specs.processor ?? '—' },
   { labelAr: 'الضمان', get: (p) => `${p.warrantyMonths} شهر` },
 ];
 
@@ -69,14 +71,15 @@ export function CompareTable({ products }: { products: readonly CustomerProductI
         <h3 id="compare-title">مقارنة سريعة</h3>
         <span className="badge badge-accent badge-dot">من الكتالوج التجريبي</span>
       </header>
-      <div className="compare-scroll">
+      <div className="compare-scroll" role="region" aria-label="جدول مقارنة المنتجات" tabIndex={0}>
         <table className="compare-table">
           <thead>
             <tr>
-              <th scope="col">الخاصية</th>
+              <th scope="col" className="compare-prop-col">الخاصية</th>
               {products.map((p) => (
-                <th scope="col" key={p.id} className="ltr">
-                  {p.nameEn}
+                <th scope="col" key={p.id} className="compare-product-col">
+                  <span className="compare-product-name-ar">{p.nameAr}</span>
+                  <span className="compare-product-name-en ltr">{p.nameEn}</span>
                 </th>
               ))}
             </tr>
@@ -84,9 +87,9 @@ export function CompareTable({ products }: { products: readonly CustomerProductI
           <tbody>
             {COMPARE_ROWS.map((row) => (
               <tr key={row.labelAr}>
-                <th scope="row">{row.labelAr}</th>
+                <th scope="row" className="compare-prop-col">{row.labelAr}</th>
                 {products.map((p) => (
-                  <td key={p.id}>{row.get(p)}</td>
+                  <td key={p.id} className="compare-val-cell">{row.get(p)}</td>
                 ))}
               </tr>
             ))}

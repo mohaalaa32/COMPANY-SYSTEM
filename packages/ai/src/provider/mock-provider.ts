@@ -7,7 +7,13 @@ import type {
 import {
   detectHandoffTrigger,
   extractBudgetIQD,
+  extractCustomerProfile,
+  extractTargetPricesIQD,
+  isBestChoiceRequested,
+  matchProductsToPriceTargets,
   normalizeForMatching,
+  type PriceTargetCandidate,
+  type PriceTargetMatch,
 } from '../persona/conversation';
 
 export interface MockLLMProviderOptions {
@@ -28,10 +34,17 @@ interface ToolProductSummary {
 interface ToolComparisonItem {
   id?: string;
   nameAr?: string;
+  nameEn?: string;
+  brand?: string;
   priceIQD?: number;
   storage?: string;
   ram?: string;
+  camera?: string;
+  battery?: string;
+  screen?: string;
+  processor?: string;
   warrantyMonths?: number;
+  tags?: string[];
 }
 
 /**
@@ -75,14 +88,24 @@ export class MockLLMProvider implements ILLMProvider {
       };
     }
 
-    // If previous message was a tool result, synthesize a grounded reply
+    // If previous message was a tool result, either continue multi-step tool chain or synthesize a grounded reply
     if (lastMessage.role === 'tool') {
-      return this.synthesizeToolReply(lastMessage);
+      const followUpToolCall = this.buildFollowUpToolCall(messages, lastMessage);
+      if (followUpToolCall) {
+        return followUpToolCall;
+      }
+      return this.synthesizeToolReply(lastMessage, messages);
     }
 
     const rawText = lastMessage.content;
     const text = rawText.toLowerCase();
     const norm = normalizeForMatching(rawText);
+    const targetPrices = extractTargetPricesIQD(rawText);
+    const hasCompareIntent =
+      norm.includes('مقارنه منتجات') ||
+      norm.includes('مقارنه') ||
+      norm.includes('قارن') ||
+      norm.includes('الفرق بين');
 
     // 2a. Explicit human handoff or unsupported policy / custom discount / complaint
     const handoffTrigger = detectHandoffTrigger(rawText);
@@ -99,13 +122,23 @@ export class MockLLMProvider implements ILLMProvider {
       };
     }
 
-    // 2b. Product comparison intent
-    if (
-      norm.includes('مقارنه منتجات') ||
-      norm.includes('مقارنه') ||
-      norm.includes('قارن') ||
-      norm.includes('الفرق بين')
-    ) {
+    // 2b. Multi-price comparison or price-targeted comparison intent:
+    // First search the catalog for available phones so selection is 100% grounded in real catalog data.
+    if (targetPrices.length >= 2 || (hasCompareIntent && targetPrices.length >= 1)) {
+      return {
+        content: '',
+        toolCalls: [
+          {
+            id: `call_search_for_compare_${Date.now()}`,
+            name: 'search_products',
+            arguments: { category: 'phone' },
+          },
+        ],
+      };
+    }
+
+    // 2c. Named / generic product comparison intent (without price targets)
+    if (hasCompareIntent) {
       let productIds = ['prod-inf-n40-256', 'prod-tecno-sp20p-256'];
       if (norm.includes('ريدمي') && (norm.includes('سامسونج') || norm.includes('سامسونك') || text.includes('a55'))) {
         productIds = ['prod-a55-256', 'prod-rn13pro-256'];
@@ -124,7 +157,7 @@ export class MockLLMProvider implements ILLMProvider {
       };
     }
 
-    // 2c. Budget matching intent
+    // 2d. Single-budget matching intent
     const parsedBudget = extractBudgetIQD(rawText);
     if (
       parsedBudget !== undefined ||
@@ -301,7 +334,103 @@ export class MockLLMProvider implements ILLMProvider {
     };
   }
 
-  private synthesizeToolReply(toolMessage: AIMessage): LLMResponse {
+  private buildFollowUpToolCall(
+    messages: AIMessage[],
+    lastToolMessage: AIMessage
+  ): LLMResponse | null {
+    if (lastToolMessage.name !== 'search_products') {
+      return null;
+    }
+
+    // Avoid calling compare_products twice in the same turn
+    const alreadyComparedInTurn = messages.some(
+      (m, idx) => idx > messages.lastIndexOf(this.findLastUserMessage(messages)!) && m.role === 'tool' && m.name === 'compare_products'
+    );
+    if (alreadyComparedInTurn) {
+      return null;
+    }
+
+    const lastUser = this.findLastUserMessage(messages);
+    if (!lastUser) return null;
+
+    const targetPrices = extractTargetPricesIQD(lastUser.content);
+    const norm = normalizeForMatching(lastUser.content);
+    const hasCompareIntent =
+      norm.includes('مقارنه منتجات') ||
+      norm.includes('مقارنه') ||
+      norm.includes('قارن') ||
+      norm.includes('الفرق بين');
+
+    if (targetPrices.length < 2 && !(hasCompareIntent && targetPrices.length >= 1)) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(lastToolMessage.content) as {
+        products?: PriceTargetCandidate[];
+      };
+      const catalogProducts = Array.isArray(parsed.products) ? parsed.products : [];
+      if (catalogProducts.length < 2) return null;
+
+      const targetMatches = matchProductsToPriceTargets(catalogProducts, targetPrices);
+      const selectedIds: string[] = [];
+
+      for (const m of targetMatches) {
+        const candidateId = m.matchedProduct?.id ?? m.closestAlternatives[0]?.id;
+        if (candidateId && !selectedIds.includes(candidateId)) {
+          selectedIds.push(candidateId);
+        }
+      }
+
+      // Ensure at least 2 distinct IDs are passed to compare_products
+      for (const m of targetMatches) {
+        if (selectedIds.length >= 2) break;
+        for (const alt of m.closestAlternatives) {
+          if (!selectedIds.includes(alt.id)) {
+            selectedIds.push(alt.id);
+            if (selectedIds.length >= 2) break;
+          }
+        }
+      }
+      for (const p of catalogProducts) {
+        if (selectedIds.length >= 2) break;
+        if (p.id && !selectedIds.includes(p.id)) {
+          selectedIds.push(p.id);
+        }
+      }
+
+      if (selectedIds.length >= 2) {
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: `call_compare_targets_${Date.now()}`,
+              name: 'compare_products',
+              arguments: {
+                productIds: selectedIds,
+                targetPricesIQD: targetPrices,
+              },
+            },
+          ],
+        };
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  private findLastUserMessage(messages: AIMessage[]): AIMessage | undefined {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.role === 'user') {
+        return messages[i];
+      }
+    }
+    return undefined;
+  }
+
+  private synthesizeToolReply(toolMessage: AIMessage, messages: AIMessage[] = []): LLMResponse {
     try {
       const parsed = JSON.parse(toolMessage.content) as Record<string, unknown>;
 
@@ -325,14 +454,22 @@ export class MockLLMProvider implements ILLMProvider {
       if (toolMessage.name === 'compare_products' && Array.isArray(parsed.comparison)) {
         const items = parsed.comparison as ToolComparisonItem[];
         if (items.length >= 2) {
-          const summary = items
-            .map(
-              (item) =>
-                `${item.nameAr ?? ''} بسعر ${Number(item.priceIQD ?? 0).toLocaleString('en-US')} د.ع (تخزين ${item.storage ?? ''}، رام ${item.ram ?? ''}، ضمان ${item.warrantyMonths ?? 12} شهر)`
-            )
-            .join(' مقابل ');
+          const lastUser = this.findLastUserMessage(messages);
+          const wantsBest = lastUser ? isBestChoiceRequested(lastUser.content) : false;
+          const profile = extractCustomerProfile(messages);
+          const priceGapIQD = typeof parsed.priceGapIQD === 'number' ? parsed.priceGapIQD : 0;
+          const targetMatches = Array.isArray(parsed.targetMatches)
+            ? (parsed.targetMatches as PriceTargetMatch[])
+            : undefined;
+
           return {
-            content: `هذي مقارنة من الكتالوج التجريبي لفرع كربلاء: ${summary}.`,
+            content: this.buildComparisonReply(
+              items,
+              targetMatches,
+              priceGapIQD,
+              wantsBest,
+              profile.usages
+            ),
           };
         }
       }
@@ -408,5 +545,140 @@ export class MockLLMProvider implements ILLMProvider {
     return {
       content: 'تم استرجاع البيانات المعتمدة من النظام التجريبي بنجاح.',
     };
+  }
+
+  private buildComparisonReply(
+    items: ToolComparisonItem[],
+    targetMatches: PriceTargetMatch[] | undefined,
+    priceGapIQD: number,
+    wantsBest: boolean,
+    usages: string[]
+  ): string {
+    // 1. If target prices were requested and at least one target has NO near phone in the catalog
+    if (targetMatches && targetMatches.length > 0 && targetMatches.some((m) => !m.isNear)) {
+      const targetNotes = targetMatches.map((m) => {
+        const targetStr = m.targetPriceIQD.toLocaleString('en-US');
+        if (m.isNear && m.matchedProduct) {
+          const prod = m.matchedProduct;
+          const diffNote =
+            prod.diffIQD === 0
+              ? 'مطابق للسعر المطلوب'
+              : `بفارق ${prod.diffIQD.toLocaleString('en-US')} د.ع عن السعر المطلوب`;
+          return `لهدف ${targetStr} د.ع: أقرب جهاز متوفر بالكتالوج التجريبي لفرع كربلاء هو ${prod.nameAr} بسعر تجريبي ${prod.priceIQD.toLocaleString('en-US')} د.ع (${diffNote})`;
+        }
+
+        const altsText =
+          m.closestAlternatives.length > 0
+            ? m.closestAlternatives
+                .map(
+                  (alt) =>
+                    `${alt.nameAr} بسعر تجريبي ${alt.priceIQD.toLocaleString('en-US')} د.ع (بفارق ${alt.diffIQD.toLocaleString('en-US')} د.ع)`
+                )
+                .join(' أو ')
+            : 'لا توجد بدائل متوفرة حالياً';
+
+        return `لهدف ${targetStr} د.ع: لا يتوفر جهاز قريب من هذا السعر في الكتالوج التجريبي لفرع كربلاء؛ وأقرب البدائل المتاحة بأسعارها الفعلية هي ${altsText}`;
+      });
+
+      const followUpQuestion = wantsBest
+        ? 'هل تقبل مقارنة أحد هذه البدائل المتوفرة؟ ويا ريت تذكرلي استخدامك الأساسي للموبايل (تصوير، ألعاب، أو استخدام يومي وبطارية) حتى أرشحلك الأنسب حسب المواصفات المتوفرة فعلياً.'
+        : 'هل تقبل اعتماد أحد هذه البدائل المتوفرة بالكتالوج التجريبي للمقارنة؟';
+
+      return `توضيح من الكتالوج التجريبي لفرع كربلاء: ${targetNotes.join('؛ و')}. ${followUpQuestion}`;
+    }
+
+    // 2. All target prices (if any) have near phones in the catalog
+    const parts: string[] = [];
+
+    if (targetMatches && targetMatches.length > 0) {
+      const targetDescriptions = targetMatches
+        .filter((m) => m.matchedProduct !== null)
+        .map((m) => {
+          const prod = m.matchedProduct!;
+          const targetStr = m.targetPriceIQD.toLocaleString('en-US');
+          const priceStr = prod.priceIQD.toLocaleString('en-US');
+          if (prod.diffIQD === 0) {
+            return `لهدف ${targetStr} د.ع اخترنا ${prod.nameAr} بسعر تجريبي ${priceStr} د.ع`;
+          }
+          const direction = prod.signedDiffIQD > 0 ? 'أعلى من الهدف بـ' : 'أقل من الهدف بـ';
+          return `لهدف ${targetStr} د.ع أقرب جهاز متوفر هو ${prod.nameAr} بسعر تجريبي ${priceStr} د.ع (${direction} ${prod.diffIQD.toLocaleString('en-US')} د.ع)`;
+        });
+
+      if (targetDescriptions.length > 0) {
+        parts.push(`حسب الكتالوج التجريبي لفرع كربلاء: ${targetDescriptions.join('، و')}.`);
+      }
+    }
+
+    const summary = items
+      .map((item) => {
+        const specParts: string[] = [
+          `تخزين ${item.storage ?? 'غير محدد'}`,
+          `رام ${item.ram ?? 'غير محدد'}`,
+        ];
+        if (item.camera && item.camera !== 'غير محدد') {
+          specParts.push(`كاميرا ${item.camera}`);
+        }
+        if (item.battery && item.battery !== 'غير محدد') {
+          specParts.push(`بطارية ${item.battery}`);
+        }
+        if (item.processor && item.processor !== 'غير محدد') {
+          specParts.push(`معالج ${item.processor}`);
+        }
+        specParts.push(`ضمان ${item.warrantyMonths ?? 12} شهر`);
+        return `${item.nameAr ?? ''} بسعر ${Number(item.priceIQD ?? 0).toLocaleString('en-US')} د.ع (${specParts.join('، ')})`;
+      })
+      .join(' مقابل ');
+
+    parts.push(`مقارنة المواصفات الفعلية من الكتالوج التجريبي لفرع كربلاء: ${summary}.`);
+
+    if (wantsBest || (targetMatches && targetMatches.length >= 2)) {
+      parts.push(this.buildGroundedRecommendation(items, priceGapIQD, usages));
+    }
+
+    return parts.join(' ');
+  }
+
+  private buildGroundedRecommendation(
+    items: ToolComparisonItem[],
+    priceGapIQD: number,
+    usages: string[]
+  ): string {
+    const itemA = items[0]!;
+    const itemB = items[1]!;
+    const priceA = Number(itemA.priceIQD ?? 0);
+    const priceB = Number(itemB.priceIQD ?? 0);
+
+    const describeDocumentedSpecs = (item: ToolComparisonItem): string => {
+      const facts: string[] = [];
+      if (item.ram && item.ram !== 'غير محدد') facts.push(`رام ${item.ram}`);
+      if (item.storage && item.storage !== 'غير محدد') facts.push(`تخزين ${item.storage}`);
+      if (item.camera && item.camera !== 'غير محدد') facts.push(`كاميرا ${item.camera}`);
+      if (item.battery && item.battery !== 'غير محدد') facts.push(`بطارية ${item.battery}`);
+      if (item.processor && item.processor !== 'غير محدد') facts.push(`معالج ${item.processor}`);
+      if (item.screen && item.screen !== 'غير محدد') facts.push(`شاشة ${item.screen}`);
+      return facts.join('، ');
+    };
+
+    const factsA = describeDocumentedSpecs(itemA);
+    const factsB = describeDocumentedSpecs(itemB);
+    const gapNote =
+      priceGapIQD > 0 ? ` علماً أن الفارق السعري بينهما ${priceGapIQD.toLocaleString('en-US')} د.ع.` : '';
+
+    if (usages.length > 0) {
+      const usageTag = usages[0]!;
+      const aHasTag = Array.isArray(itemA.tags) && itemA.tags.includes(usageTag);
+      const bHasTag = Array.isArray(itemB.tags) && itemB.tags.includes(usageTag);
+      const chosen = aHasTag && !bHasTag ? itemA : bHasTag && !aHasTag ? itemB : itemA;
+      const chosenFacts = chosen === itemA ? factsA : factsB;
+      const chosenPrice = Number(chosen.priceIQD ?? 0).toLocaleString('en-US');
+      return `بناءً على المواصفات المسجلة بالكتالوج التجريبي، أرشحلك ${chosen.nameAr ?? ''} بسعر ${chosenPrice} د.ع لكونه يوفر (${chosenFacts}).${gapNote}`;
+    }
+
+    return (
+      `الترشيح المشروط حسب المواصفات المتوفرة فعلياً: ` +
+      `إذا تفضل مواصفات ${itemA.nameAr ?? ''} بسعر ${priceA.toLocaleString('en-US')} د.ع فهو يقدم (${factsA})؛ ` +
+      `وإذا تفضل ${itemB.nameAr ?? ''} بسعر ${priceB.toLocaleString('en-US')} د.ع فهو يقدم (${factsB}).${gapNote} ` +
+      `شنو استخدامك الأساسي للجهاز (تصوير، ألعاب، أو استخدام يومي وبطارية) حتى أحددلك الخيار الأنسب إلك؟`
+    );
   }
 }

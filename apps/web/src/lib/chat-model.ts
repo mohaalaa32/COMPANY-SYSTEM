@@ -67,3 +67,4 @@ export function validateCustomerChatMessage(raw: unknown): CustomerChatValidatio
     message: trimmed,
   };
 }
+

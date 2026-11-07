@@ -28,7 +28,10 @@ export interface CustomerProductItem {
   specs: {
     storage?: string;
     ram?: string;
+    camera?: string;
     battery?: string;
+    screen?: string;
+    processor?: string;
     color?: string;
   };
 }
