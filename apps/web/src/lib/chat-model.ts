@@ -9,9 +9,23 @@ import type { CustomerProductItem } from './customer-search';
 
 export const MAX_CUSTOMER_MESSAGE_LENGTH = 1000;
 
+export type CustomerChatCardIntent = 'ask_product' | 'compare_product';
+
 export interface CustomerChatRequestPayload {
   conversationId?: string;
   message: string;
+  productId?: string;
+  compareWithProductId?: string;
+  intent?: CustomerChatCardIntent;
+}
+
+const VALID_PRODUCT_ID_PATTERN = /^prod-[a-z0-9-]+$/i;
+
+export function validateOptionalProductId(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0 || trimmed.length > 80) return undefined;
+  return VALID_PRODUCT_ID_PATTERN.test(trimmed) ? trimmed.toLowerCase() : undefined;
 }
 
 export interface CustomerChatTurnResponse {

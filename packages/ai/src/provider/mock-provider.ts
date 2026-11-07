@@ -23,12 +23,34 @@ export interface MockLLMProviderOptions {
 
 interface ToolProductSummary {
   id?: string;
+  sku?: string;
   nameAr?: string;
+  nameEn?: string;
+  brand?: string;
   basePriceIQD?: number;
   salePriceIQD?: number;
   specs?: {
+    storage?: string;
+    ram?: string;
+    camera?: string;
+    battery?: string;
+    screen?: string;
+    processor?: string;
+    color?: string;
     warrantyMonths?: number;
   };
+}
+
+function extractCatalogProductIds(text: string): string[] {
+  const matches = text.match(/\bprod-[a-z0-9-]+\b/gi) ?? [];
+  const unique: string[] = [];
+  for (const m of matches) {
+    const id = m.toLowerCase();
+    if (!unique.includes(id)) {
+      unique.push(id);
+    }
+  }
+  return unique;
 }
 
 interface ToolComparisonItem {
@@ -117,6 +139,37 @@ export class MockLLMProvider implements ILLMProvider {
             id: `call_handoff_${Date.now()}`,
             name: 'handoff_to_human',
             arguments: { reason: handoffTrigger.reason },
+          },
+        ],
+      };
+    }
+
+    const explicitProductIds = extractCatalogProductIds(rawText);
+
+    // 2b-1. Two or more explicit product IDs supplied (e.g. comparing two selected cards)
+    if (explicitProductIds.length >= 2) {
+      return {
+        content: '',
+        toolCalls: [
+          {
+            id: `call_compare_ids_${Date.now()}`,
+            name: 'compare_products',
+            arguments: { productIds: explicitProductIds },
+          },
+        ],
+      };
+    }
+
+    // 2b-2. Single explicit product ID without a second target price -> fetch exact SKU details
+    // (Covers both «اسأل عن الجهاز» and «قارن مع جهاز آخر» when only the first device is selected)
+    if (explicitProductIds.length === 1 && targetPrices.length === 0) {
+      return {
+        content: '',
+        toolCalls: [
+          {
+            id: `call_details_${Date.now()}`,
+            name: 'get_product_details',
+            arguments: { productId: explicitProductIds[0]! },
           },
         ],
       };
@@ -374,6 +427,12 @@ export class MockLLMProvider implements ILLMProvider {
 
       const targetMatches = matchProductsToPriceTargets(catalogProducts, targetPrices);
       const selectedIds: string[] = [];
+      const explicitIds = extractCatalogProductIds(lastUser.content);
+      for (const id of explicitIds) {
+        if (!selectedIds.includes(id)) {
+          selectedIds.push(id);
+        }
+      }
 
       for (const m of targetMatches) {
         const candidateId = m.matchedProduct?.id ?? m.closestAlternatives[0]?.id;
@@ -448,6 +507,49 @@ export class MockLLMProvider implements ILLMProvider {
         }
         return {
           content: 'عذراً، تعذر إرسال تنبيه التحويل للموظف حالياً. تقدر تعيد المحاولة بعد قليل.',
+        };
+      }
+
+      if (toolMessage.name === 'get_product_details' || 'product' in parsed) {
+        if (parsed.found === false || !parsed.product) {
+          return {
+            content: 'عذراً، لم يتم العثور على هذا الصنف في الكتالوج التجريبي لفرع كربلاء.',
+          };
+        }
+
+        const prod = parsed.product as ToolProductSummary;
+        const price = prod.salePriceIQD ?? prod.basePriceIQD ?? 0;
+        const warranty = prod.specs?.warrantyMonths ?? 12;
+        const specParts: string[] = [];
+        if (prod.specs?.storage) specParts.push(`تخزين ${prod.specs.storage}`);
+        if (prod.specs?.ram) specParts.push(`رام ${prod.specs.ram}`);
+        if (prod.specs?.camera) specParts.push(`كاميرا ${prod.specs.camera}`);
+        if (prod.specs?.battery) specParts.push(`بطارية ${prod.specs.battery}`);
+        if (prod.specs?.screen) specParts.push(`شاشة ${prod.specs.screen}`);
+        if (prod.specs?.processor) specParts.push(`معالج ${prod.specs.processor}`);
+        if (prod.specs?.color) specParts.push(`لون ${prod.specs.color}`);
+
+        const lastUser = this.findLastUserMessage(messages);
+        const normUser = lastUser ? normalizeForMatching(lastUser.content) : '';
+        const isComparePrompt =
+          normUser.includes('مقارنه') ||
+          normUser.includes('قارن') ||
+          normUser.includes('الفرق بين');
+
+        if (isComparePrompt) {
+          return {
+            content:
+              `تم اختيار ${prod.nameAr ?? ''} (رمز الصنف: ${prod.sku ?? ''}) بسعر تجريبي ${price.toLocaleString('en-US')} د.ع من الكتالوج التجريبي لفرع كربلاء للمقارنة. ` +
+              `يرجى تحديد الجهاز الثاني الذي تريد مقارنته معه (اختر «قارن» من بطاقة جهاز آخر أو اكتب اسم أو سعر الجهاز الثاني في المحادثة).`,
+          };
+        }
+
+        const specsNote = specParts.length > 0 ? `، والمواصفات المتوفرة (${specParts.join('، ')})` : '';
+        return {
+          content:
+            `تفاصيل ${prod.nameAr ?? ''} (رمز الصنف: ${prod.sku ?? ''}) بالكتالوج التجريبي لفرع كربلاء: ` +
+            `السعر التجريبي ${price.toLocaleString('en-US')} د.ع، ضمان ${warranty} شهر${specsNote}. ` +
+            `هل تحب تقارنه ويا جهاز ثاني أو تستفسر عن بدائل أخرى؟`,
         };
       }
 

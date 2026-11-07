@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { DemoBadge } from '@/components/brand';
+import {
+  CUSTOMER_PRODUCT_ACTION_EVENT,
+  type CustomerProductActionDetail,
+} from '@/components/customer/customer-chat';
+import { ProductDetailsDialog } from '@/components/customer/product-cards';
 import { IconDevice, IconInfo, IconSearch, IconX } from '@/components/icons';
 import {
   buildCustomerSearchQueryString,
@@ -179,6 +184,23 @@ export function CustomerProductSearch({
 
   const hasActiveFilters = Boolean(
     query.trim() || brandFilter || minPriceRaw.trim() || maxPriceRaw.trim() || inStockOnly
+  );
+
+  const dispatchProductActionToChat = useCallback(
+    (type: 'ask' | 'compare', product: CustomerProductItem) => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent<CustomerProductActionDetail>(CUSTOMER_PRODUCT_ACTION_EVENT, {
+            detail: { type, product },
+          })
+        );
+        const chatEl = document.getElementById('chat-title');
+        if (chatEl && typeof chatEl.scrollIntoView === 'function') {
+          chatEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    },
+    []
   );
 
   return (
@@ -395,7 +417,14 @@ export function CustomerProductSearch({
                     <span className="catalog-item-old-price">{formatIQD(item.basePriceIQD)}</span>
                   )}
                 </div>
-                <span className="badge badge-demo">سعر تجريبي</span>
+                <div className="catalog-item-foot-actions">
+                  <span className="badge badge-demo">سعر تجريبي</span>
+                  <ProductDetailsDialog
+                    product={item}
+                    onAskProduct={(prod) => dispatchProductActionToChat('ask', prod)}
+                    onCompareProduct={(prod) => dispatchProductActionToChat('compare', prod)}
+                  />
+                </div>
               </div>
             </article>
           ))}

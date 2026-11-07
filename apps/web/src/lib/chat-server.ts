@@ -28,6 +28,8 @@ import {
 import { calcEngine } from '@tel/calc';
 import {
   validateCustomerChatMessage,
+  validateOptionalProductId,
+  type CustomerChatCardIntent,
   type CustomerChatTurnResponse,
 } from './chat-model';
 import type { CustomerProductItem } from './customer-search';
@@ -217,6 +219,27 @@ export async function processCustomerChatTurn(
     );
   }
 
+  const productId = validateOptionalProductId(input.productId);
+  const compareWithProductId = validateOptionalProductId(input.compareWithProductId);
+  const intent: CustomerChatCardIntent | undefined =
+    input.intent === 'ask_product' || input.intent === 'compare_product'
+      ? input.intent
+      : undefined;
+
+  let effectiveMessage = validation.message;
+  if (productId && compareWithProductId && productId !== compareWithProductId) {
+    effectiveMessage = `قارن لي بين الجهازين (${productId} و ${compareWithProductId}): ${validation.message}`;
+  } else if (productId) {
+    const idTag = effectiveMessage.toLowerCase().includes(productId)
+      ? ''
+      : ` (${productId})`;
+    if (intent === 'compare_product' && !effectiveMessage.includes('قارن') && !effectiveMessage.includes('مقارن')) {
+      effectiveMessage = `أريد مقارنة هذا الجهاز${idTag}: ${validation.message}`;
+    } else {
+      effectiveMessage = `${validation.message}${idTag}`;
+    }
+  }
+
   const rawConvId =
     typeof input.conversationId === 'string' ? input.conversationId.trim() : '';
   const conversationId =
@@ -259,12 +282,12 @@ export async function processCustomerChatTurn(
     provider
   );
 
-  const turnResult = await agent.processMessage(validation.message, session.history);
+  const turnResult = await agent.processMessage(effectiveMessage, session.history);
 
   // Append user message and safe assistant reply to in-memory session history
   const appendedHistory: AIMessage[] = [
     ...session.history,
-    { role: 'user', content: validation.message },
+    { role: 'user', content: effectiveMessage },
     { role: 'assistant', content: turnResult.reply },
   ];
   const nextHistory: AIMessage[] = appendedHistory.slice(-MAX_HISTORY_MESSAGES_PER_SESSION);

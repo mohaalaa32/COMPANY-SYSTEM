@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 process.env.KB_SQLITE_PATH = ':memory:';
@@ -7,9 +9,17 @@ process.env.KB_SQLITE_PATH = ':memory:';
 import { KARBALA_BRANCH_ID } from '@tel/adapters';
 import { MockLLMProvider } from '@tel/ai';
 import { POST as chatPost } from '../src/app/api/chat/route';
+import { CustomerChat } from '../src/components/customer/customer-chat';
+import {
+  getAvailableProductSpecRows,
+  ProductMiniCard,
+  ProductRowCard,
+} from '../src/components/customer/product-cards';
+import { buttonVariants } from '../src/components/ui/button';
 import {
   MAX_CUSTOMER_MESSAGE_LENGTH,
   validateCustomerChatMessage,
+  validateOptionalProductId,
   type CustomerChatTurnResponse,
 } from '../src/lib/chat-model';
 import {
@@ -17,6 +27,12 @@ import {
   processCustomerChatTurn,
   resetChatSessionsForTesting,
 } from '../src/lib/chat-server';
+import {
+  CUSTOMER_PREVIEW,
+  getDemoProduct,
+  toCustomerProductItem,
+} from '../src/lib/demo-data';
+import { cn } from '../src/lib/utils';
 
 function buildChatRequest(
   body: Record<string, unknown>,
@@ -275,6 +291,213 @@ describe('Customer Interactive Local Chat & /api/chat Route (Batch 1-A1)', () =>
     // Light and Dark theme tokens exist for surface and text contrast
     expect(tokensCss).toContain(":root[data-theme='light']");
     expect(tokensCss).toContain(":root[data-theme='dark']");
+  });
+
+  it('integrates shadcn/ui Button and Dialog with Tel Baghdad brand tokens, RTL, and non-destructive Tailwind layers (Batch 1-A2)', () => {
+    const globalsCss = readFileSync(
+      join(__dirname, '..', 'src', 'styles', 'globals.css'),
+      'utf-8'
+    );
+    const dialogTsx = readFileSync(
+      join(__dirname, '..', 'src', 'components', 'ui', 'dialog.tsx'),
+      'utf-8'
+    );
+    const componentsJson = JSON.parse(
+      readFileSync(join(__dirname, '..', 'components.json'), 'utf-8')
+    ) as { rtl?: boolean; aliases?: Record<string, string> };
+
+    expect(componentsJson.rtl).toBe(true);
+    expect(componentsJson.aliases?.ui).toBe('@/components/ui');
+
+    // Tailwind theme + utilities are layered without importing preflight.css
+    expect(globalsCss).toContain('@layer theme, base, components, utilities;');
+    expect(globalsCss).not.toContain('preflight.css');
+    expect(globalsCss).toContain('--color-primary: var(--primary)');
+    expect(globalsCss).toContain('[data-theme="dark"]');
+
+    // cn() utility merges classes cleanly and buttonVariants maps brand classes
+    expect(cn('px-2', 'px-4')).toBe('px-4');
+    expect(buttonVariants({ variant: 'default', fullWidth: true })).toContain('btn-primary');
+    expect(buttonVariants({ variant: 'default', fullWidth: true })).toContain('btn-block');
+
+    // Dialog uses Radix Dialog primitive with RTL and accessible close label
+    expect(dialogTsx).toContain('@radix-ui/react-dialog');
+    expect(dialogTsx).toContain('dir="rtl"');
+    expect(dialogTsx).toContain('إغلاق نافذة التفاصيل');
+  });
+
+  it('displays only genuinely available catalog fields in ProductDetailsDialog without inventing missing specs or leaking costIQD (Batch 1-A2)', () => {
+    const phone = toCustomerProductItem(getDemoProduct('prod-rn13pro-256'));
+    const phoneRows = getAvailableProductSpecRows(phone);
+    const phoneKeys = phoneRows.map((r) => r.key);
+
+    expect(phoneKeys).toEqual([
+      'brand',
+      'sku',
+      'warranty',
+      'storage',
+      'ram',
+      'camera',
+      'battery',
+      'screen',
+      'processor',
+      'color',
+    ]);
+
+    const accessory = toCustomerProductItem(getDemoProduct('prod-acc-a55-case'));
+    const accessoryRows = getAvailableProductSpecRows(accessory);
+    const accessoryKeys = accessoryRows.map((r) => r.key);
+
+    // Accessory only has brand, sku, warranty, and color — no storage, ram, camera, battery, screen, or processor
+    expect(accessoryKeys).toEqual(['brand', 'sku', 'warranty', 'color']);
+    expect(JSON.stringify(phoneRows)).not.toContain('costIQD');
+    expect(JSON.stringify(accessoryRows)).not.toContain('costIQD');
+  });
+
+  it('sends the exact productId when clicking «اسأل عن الجهاز» and returns grounded details for that specific SKU (Batch 1-A2)', async () => {
+    expect(validateOptionalProductId('prod-inf-n40-256')).toBe('prod-inf-n40-256');
+    expect(validateOptionalProductId('invalid id!')).toBeUndefined();
+
+    const res = await chatPost(
+      buildChatRequest({
+        message: 'أريد تفاصيل وسعر جهاز إنفينيكس نوت 40 برو (رمز الصنف: INF-N40P-256-GLD)',
+        productId: 'prod-inf-n40-256',
+        intent: 'ask_product',
+      })
+    );
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as CustomerChatTurnResponse;
+
+    expect(data.isSafe).toBe(true);
+    expect(data.rejected).toBe(false);
+    expect(data.toolsUsed).toEqual(['get_product_details']);
+    expect(data.products.map((p) => p.id)).toEqual(['prod-inf-n40-256']);
+    expect(data.reply).toContain('إنفينيكس نوت 40 برو');
+    expect(data.reply).toContain('INF-N40P-256-GD');
+    expect(data.reply).toContain('250,000');
+  });
+
+  it('prompts the customer clearly for the second device when clicking «قارن مع جهاز آخر», and compares once the second device is selected (Batch 1-A2)', async () => {
+    // Step 1: Customer clicks «قارن مع جهاز آخر» on the first product card
+    const step1Res = await chatPost(
+      buildChatRequest({
+        message: 'أريد مقارنة جهاز إنفينيكس نوت 40 برو (رمز الصنف: INF-N40P-256-GLD) مع جهاز آخر',
+        productId: 'prod-inf-n40-256',
+        intent: 'compare_product',
+      })
+    );
+    expect(step1Res.status).toBe(200);
+    const step1 = (await step1Res.json()) as CustomerChatTurnResponse;
+
+    expect(step1.isSafe).toBe(true);
+    expect(step1.toolsUsed).toEqual(['get_product_details']);
+    expect(step1.products.map((p) => p.id)).toEqual(['prod-inf-n40-256']);
+    expect(step1.comparedProducts).toEqual([]);
+    expect(step1.reply).toContain('تم اختيار إنفينيكس نوت 40 برو');
+    expect(step1.reply).toContain('250,000');
+    expect(step1.reply).toContain('يرجى تحديد الجهاز الثاني');
+
+    // Step 2: Customer selects the second product card for comparison
+    const step2Res = await chatPost(
+      buildChatRequest({
+        conversationId: step1.conversationId,
+        message: 'قارن لي بين جهاز إنفينيكس نوت 40 برو وجهاز تكنو سبارك 20 برو بلس وأنت قرر لي يا هو الأفضل',
+        productId: 'prod-inf-n40-256',
+        compareWithProductId: 'prod-tecno-sp20p-256',
+        intent: 'compare_product',
+      })
+    );
+    expect(step2Res.status).toBe(200);
+    const step2 = (await step2Res.json()) as CustomerChatTurnResponse;
+
+    expect(step2.isSafe).toBe(true);
+    expect(step2.toolsUsed).toEqual(['compare_products']);
+    expect(step2.comparedProducts.map((p) => p.id)).toEqual([
+      'prod-inf-n40-256',
+      'prod-tecno-sp20p-256',
+    ]);
+    expect(step2.reply).toContain('250,000');
+    expect(step2.reply).toContain('215,000');
+    expect(step2.reply).toContain('الترشيح المشروط');
+  });
+
+  it('enforces double-submit guard, dialog close before send, and focus return in CustomerChat and ProductDetailsDialog (Batch 1-A2)', () => {
+    const chatTsx = readFileSync(
+      join(__dirname, '..', 'src', 'components', 'customer', 'customer-chat.tsx'),
+      'utf-8'
+    );
+    const cardsTsx = readFileSync(
+      join(__dirname, '..', 'src', 'components', 'customer', 'product-cards.tsx'),
+      'utf-8'
+    );
+
+    // Double-submit guard uses synchronous ref + isLoading state
+    expect(chatTsx).toContain('if (inFlightRef.current || isLoading) return;');
+    expect(chatTsx).toContain('aria-busy={isLoading}');
+    expect(chatTsx).toContain('focusComposerInput()');
+    expect(chatTsx).toContain('compare-selection-banner');
+
+    // Dialog closes cleanly when «اسأل عن الجهاز» or «قارن مع جهاز آخر» is clicked
+    expect(cardsTsx).toContain('setOpen(false)');
+    expect(cardsTsx).toContain('اسأل عن الجهاز');
+    expect(cardsTsx).toContain('قارن مع جهاز آخر');
+  });
+
+  it('renders enabled shadcn/ui Button and Dialog triggers on ProductMiniCard, ProductRowCard, and CustomerChat without leaking costIQD (Batch 1-A2)', () => {
+    const phone = toCustomerProductItem(getDemoProduct('prod-inf-n40-256'));
+    const accessory = toCustomerProductItem(getDemoProduct('prod-acc-a55-case'));
+
+    const miniCardHtml = renderToStaticMarkup(
+      createElement(ProductMiniCard, {
+        product: phone,
+        onAskProduct: () => {},
+        onCompareProduct: () => {},
+      })
+    );
+    expect(miniCardHtml).toContain('data-testid="view-details-prod-inf-n40-256"');
+    expect(miniCardHtml).toContain('data-testid="card-ask-prod-inf-n40-256"');
+    expect(miniCardHtml).toContain('data-testid="card-compare-prod-inf-n40-256"');
+    expect(miniCardHtml).toContain('عرض التفاصيل');
+    expect(miniCardHtml).toContain('اسأل عن الجهاز');
+    expect(miniCardHtml).toContain('قارن مع جهاز آخر');
+    expect(miniCardHtml).not.toContain('disabled=""');
+    expect(miniCardHtml).not.toContain('costIQD');
+
+    const rowCardHtml = renderToStaticMarkup(
+      createElement(ProductRowCard, {
+        product: accessory,
+        onAskProduct: () => {},
+        onCompareProduct: () => {},
+      })
+    );
+    expect(rowCardHtml).toContain('data-testid="view-details-prod-acc-a55-case"');
+    expect(rowCardHtml).toContain('data-testid="card-ask-prod-acc-a55-case"');
+    // Accessory does not show phone compare button
+    expect(rowCardHtml).not.toContain('data-testid="card-compare-prod-acc-a55-case"');
+
+    const chatHtml = renderToStaticMarkup(
+      createElement(CustomerChat, {
+        preview: {
+          timeLabel: CUSTOMER_PREVIEW.timeLabel,
+          customerBudgetText: CUSTOMER_PREVIEW.customerBudgetText,
+          aiIntroText: CUSTOMER_PREVIEW.aiIntroText,
+          suggestions: CUSTOMER_PREVIEW.suggestionIds.map((id) =>
+            toCustomerProductItem(getDemoProduct(id))
+          ),
+          customerAccessoryText: CUSTOMER_PREVIEW.customerAccessoryText,
+          accessory,
+          compared: CUSTOMER_PREVIEW.compareIds.map((id) =>
+            toCustomerProductItem(getDemoProduct(id))
+          ),
+          quickReplies: CUSTOMER_PREVIEW.quickReplies,
+        },
+      })
+    );
+    expect(chatHtml).toContain('id="chat-preview"');
+    expect(chatHtml).toContain('aria-live="polite"');
+    expect(chatHtml).toContain('aria-busy="false"');
+    expect(chatHtml).toContain('data-slot="button"');
+    expect(chatHtml).not.toContain('costIQD');
   });
 });
 

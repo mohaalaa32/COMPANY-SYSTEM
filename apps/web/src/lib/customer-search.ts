@@ -36,6 +36,49 @@ export interface CustomerProductItem {
   };
 }
 
+export interface ProductSpecRow {
+  key: string;
+  labelAr: string;
+  value: string;
+  ltr?: boolean;
+}
+
+/**
+ * Returns only the specification fields that are genuinely present on a CustomerProductItem,
+ * never inventing or guessing missing fields.
+ */
+export function getAvailableProductSpecRows(product: CustomerProductItem): ProductSpecRow[] {
+  const rows: ProductSpecRow[] = [
+    { key: 'brand', labelAr: 'العلامة التجارية', value: product.brand, ltr: true },
+    { key: 'sku', labelAr: 'رمز الصنف (SKU)', value: product.sku, ltr: true },
+    { key: 'warranty', labelAr: 'الضمان', value: `${product.warrantyMonths} شهر` },
+  ];
+
+  if (product.specs.storage) {
+    rows.push({ key: 'storage', labelAr: 'التخزين', value: product.specs.storage, ltr: true });
+  }
+  if (product.specs.ram) {
+    rows.push({ key: 'ram', labelAr: 'الذاكرة العشوائية (الرام)', value: product.specs.ram, ltr: true });
+  }
+  if (product.specs.camera) {
+    rows.push({ key: 'camera', labelAr: 'الكاميرا', value: product.specs.camera });
+  }
+  if (product.specs.battery) {
+    rows.push({ key: 'battery', labelAr: 'البطارية', value: product.specs.battery });
+  }
+  if (product.specs.screen) {
+    rows.push({ key: 'screen', labelAr: 'الشاشة', value: product.specs.screen });
+  }
+  if (product.specs.processor) {
+    rows.push({ key: 'processor', labelAr: 'المعالج', value: product.specs.processor, ltr: true });
+  }
+  if (product.specs.color) {
+    rows.push({ key: 'color', labelAr: 'اللون', value: product.specs.color });
+  }
+
+  return rows;
+}
+
 export interface CustomerSearchFilters {
   query?: string;
   brand?: string;
