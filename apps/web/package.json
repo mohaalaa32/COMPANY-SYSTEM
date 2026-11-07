@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@tel/adapters": "workspace:*",
+    "@tel/ai": "workspace:*",
+    "@tel/calc": "workspace:*",
     "@tel/config": "workspace:*",
     "next": "15.5.28",
     "react": "19.3.1",

@@ -16,6 +16,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@tel/ai": [
+        "../../packages/ai/src/index.ts"
+      ],
+      "@tel/calc": [
+        "../../packages/calc/src/index.ts"
       ]
     },
     "incremental": true

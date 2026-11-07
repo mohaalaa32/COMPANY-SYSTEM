@@ -1,15 +1,12 @@
 import { brand } from '@tel/config/brand';
-import { BrandMark, DemoBanner, DemoBadge } from '@/components/brand';
-import { CompareTable, ProductMiniCard, ProductRowCard } from '@/components/customer/product-cards';
+import { BrandMark, DemoBanner } from '@/components/brand';
+import { CustomerChat } from '@/components/customer/customer-chat';
 import { CustomerProductSearch } from '@/components/customer/product-search';
 import {
   IconBag,
-  IconBot,
   IconCheckCircle,
   IconHeadset,
   IconInfo,
-  IconMore,
-  IconSend,
   IconShield,
 } from '@/components/icons';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -18,17 +15,22 @@ import {
   DEMO_BRANCH,
   getDemoProduct,
   searchCustomerCatalog,
+  toCustomerProductItem,
 } from '@/lib/demo-data';
 
 export default async function CustomerPage() {
-  const suggestions = CUSTOMER_PREVIEW.suggestionIds.map(getDemoProduct);
-  const accessory = getDemoProduct(CUSTOMER_PREVIEW.accessoryId);
-  const compared = CUSTOMER_PREVIEW.compareIds.map(getDemoProduct);
+  const suggestions = CUSTOMER_PREVIEW.suggestionIds.map((id) =>
+    toCustomerProductItem(getDemoProduct(id))
+  );
+  const accessory = toCustomerProductItem(getDemoProduct(CUSTOMER_PREVIEW.accessoryId));
+  const compared = CUSTOMER_PREVIEW.compareIds.map((id) =>
+    toCustomerProductItem(getDemoProduct(id))
+  );
   const initialSearch = await searchCustomerCatalog({});
 
   return (
     <div className="customer-page">
-      <DemoBanner text="معاينة هيكلية: المنتجات والأسعار والمخزون بيانات تجريبية، والمحادثة والإرسال غير مفعّلين بعد." />
+      <DemoBanner text="وضع تجريبي محلي مفعّل: المحادثة تعمل عبر المساعد التجريبي (MockLLMProvider) على كتالوج ومخزون فرع كربلاء التجريبيين — ليست بيانات نظام الشركة الحي بعد." />
 
       <header className="site-header">
         <div className="site-header-inner">
@@ -58,103 +60,28 @@ export default async function CustomerPage() {
             <div>
               <dt>المساعد الذكي</dt>
               <dd>
-                <span className="badge badge-warning badge-dot">غير مفعّل بعد</span>
+                <span className="badge badge-accent badge-dot">متصل · وضع تجريبي (Mock)</span>
               </dd>
             </div>
             <div>
-              <dt>وقت الرد</dt>
-              <dd>يُحدَّد عند التشغيل</dd>
+              <dt>البيانات والمخزون</dt>
+              <dd>كتالوج كربلاء التجريبي</dd>
             </div>
           </dl>
         </aside>
 
-        <section className="chat-card card" aria-labelledby="chat-title">
-          <header className="chat-card-head">
-            <span className="chat-bot-icon">
-              <IconBot />
-            </span>
-            <div className="chat-card-title">
-              <h2 id="chat-title">{brand.assistantDisplayAr}</h2>
-              <span className="badge badge-dot">غير متصل · معاينة</span>
-            </div>
-            <button type="button" className="icon-btn" disabled aria-label="خيارات (غير متاحة بعد)">
-              <IconMore />
-            </button>
-          </header>
-
-          <div className="chat-body" id="chat-preview">
-            <div className="preview-notice" role="note">
-              <IconInfo />
-              <span>مثال توضيحي ثابت لشكل المحادثة، وليس محادثة حقيقية. لا يُرسل أي شيء.</span>
-            </div>
-
-            <div className="chat-stamp">
-              <span>{CUSTOMER_PREVIEW.timeLabel}</span>
-            </div>
-
-            <div className="bubble bubble-customer animate-in">{CUSTOMER_PREVIEW.customerBudgetText}</div>
-
-            <div className="ai-block animate-in">
-              <div className="ai-block-meta">
-                <span className="ai-dot" aria-hidden="true" />
-                <span>{brand.assistantDisplayAr}</span>
-                <DemoBadge />
-              </div>
-              <p>{CUSTOMER_PREVIEW.aiIntroText}</p>
-              <div className="product-carousel" role="list" aria-label="منتجات مقترحة (تجريبية)">
-                {suggestions.map((p) => (
-                  <div role="listitem" key={p.id}>
-                    <ProductMiniCard product={p} />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bubble bubble-customer animate-in">{CUSTOMER_PREVIEW.customerAccessoryText}</div>
-
-            <div className="ai-block animate-in">
-              <div className="ai-block-meta">
-                <span className="ai-dot" aria-hidden="true" />
-                <span>{brand.assistantDisplayAr}</span>
-                <DemoBadge />
-              </div>
-              <ProductRowCard product={accessory} />
-            </div>
-
-            <div className="ai-block ai-block-accent animate-in">
-              <CompareTable products={compared} />
-            </div>
-          </div>
-
-          <footer className="chat-foot">
-            <p className="chat-foot-label">اختصارات سريعة</p>
-            <div className="quick-replies">
-              {CUSTOMER_PREVIEW.quickReplies.map((q) => (
-                <button type="button" key={q} className="chip" disabled>
-                  {q}
-                </button>
-              ))}
-            </div>
-            <form className="composer" aria-label="كتابة رسالة (غير مفعّلة)">
-              <label htmlFor="customer-message" className="sr-only">
-                رسالتك
-              </label>
-              <input
-                id="customer-message"
-                type="text"
-                placeholder="المحادثة غير مفعّلة في هذه المعاينة"
-                disabled
-                autoComplete="off"
-              />
-              <button type="submit" id="customer-send" className="composer-send" disabled aria-label="إرسال (غير مفعّل)">
-                <IconSend />
-              </button>
-            </form>
-            <button type="button" id="customer-handoff" className="link-btn" disabled title="غير مفعّل في هذه المعاينة">
-              التحدث مع موظف
-            </button>
-          </footer>
-        </section>
+        <CustomerChat
+          preview={{
+            timeLabel: CUSTOMER_PREVIEW.timeLabel,
+            customerBudgetText: CUSTOMER_PREVIEW.customerBudgetText,
+            aiIntroText: CUSTOMER_PREVIEW.aiIntroText,
+            suggestions,
+            customerAccessoryText: CUSTOMER_PREVIEW.customerAccessoryText,
+            accessory,
+            compared,
+            quickReplies: CUSTOMER_PREVIEW.quickReplies,
+          }}
+        />
 
         <aside className="side-card side-card-trust card animate-in" aria-labelledby="trust-title">
           <span className="side-card-icon side-card-icon-accent">

@@ -35,6 +35,12 @@ importers:
       '@tel/adapters':
         specifier: workspace:*
         version: link:../../packages/adapters
+      '@tel/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@tel/calc':
+        specifier: workspace:*
+        version: link:../../packages/calc
       '@tel/config':
         specifier: workspace:*
         version: link:../../config

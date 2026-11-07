@@ -8,7 +8,7 @@
     "node": ">=20.11"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @tel/backend --filter @tel/web dev",
+    "dev": "pnpm --filter @tel/web dev",
     "dev:web": "pnpm --filter @tel/web dev",
     "dev:backend": "pnpm --filter @tel/backend dev",
     "build": "pnpm --filter @tel/web build",

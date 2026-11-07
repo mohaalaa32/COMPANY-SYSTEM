@@ -1,18 +1,20 @@
-import type { Product } from '@tel/adapters';
-import { displayPriceIQD, karbalaQuantity } from '@/lib/demo-data';
+import type { CustomerProductItem } from '@/lib/customer-search';
 import { formatIQD } from '@/lib/format';
 import { IconDevice } from '../icons';
 
-export function StockBadge({ product }: { product: Product }) {
-  const qty = karbalaQuantity(product);
-  return qty > 0 ? (
-    <span className="badge badge-success badge-dot">متوفر بكربلاء</span>
+export function StockBadge({ product }: { product: CustomerProductItem }) {
+  return product.isAvailableInKarbala && product.karbalaQty > 0 ? (
+    <span className="badge badge-success badge-dot" title="بيانات مخزون تجريبية لفرع كربلاء">
+      متوفر بكربلاء (تجريبي)
+    </span>
   ) : (
-    <span className="badge badge-danger badge-dot">غير متوفر</span>
+    <span className="badge badge-danger badge-dot" title="بيانات مخزون تجريبية لفرع كربلاء">
+      غير متوفر (تجريبي)
+    </span>
   );
 }
 
-export function ProductMiniCard({ product }: { product: Product }) {
+export function ProductMiniCard({ product }: { product: CustomerProductItem }) {
   return (
     <article className="product-card" aria-label={product.nameAr}>
       <div className="product-thumb" role="img" aria-label="لا توجد صورة منتج بعد">
@@ -22,25 +24,25 @@ export function ProductMiniCard({ product }: { product: Product }) {
         {product.nameEn}
       </h4>
       <div className="product-meta">
-        <span className="product-price">{formatIQD(displayPriceIQD(product))}</span>
+        <span className="product-price">{formatIQD(product.priceIQD)}</span>
         <StockBadge product={product} />
       </div>
-      <button type="button" className="btn btn-primary btn-block" disabled title="غير مفعّل في هذه المعاينة">
+      <button type="button" className="btn btn-primary btn-block" disabled title="يُفعّل في الدفعة 1-A2">
         عرض التفاصيل
       </button>
     </article>
   );
 }
 
-export function ProductRowCard({ product }: { product: Product }) {
+export function ProductRowCard({ product }: { product: CustomerProductItem }) {
   return (
     <article className="product-row" aria-label={product.nameAr}>
       <div className="product-row-body">
         <h4 className="product-name">{product.nameAr}</h4>
-        <span className="product-price">{formatIQD(displayPriceIQD(product))}</span>
+        <span className="product-price">{formatIQD(product.priceIQD)}</span>
         <div className="product-row-actions">
           <StockBadge product={product} />
-          <button type="button" className="btn btn-primary" disabled title="غير مفعّل في هذه المعاينة">
+          <button type="button" className="btn btn-primary" disabled title="يُفعّل في الدفعة 1-A2">
             عرض التفاصيل
           </button>
         </div>
@@ -52,15 +54,15 @@ export function ProductRowCard({ product }: { product: Product }) {
   );
 }
 
-const COMPARE_ROWS: Array<{ labelAr: string; get: (p: Product) => string }> = [
-  { labelAr: 'السعر', get: (p) => formatIQD(displayPriceIQD(p)) },
+const COMPARE_ROWS: Array<{ labelAr: string; get: (p: CustomerProductItem) => string }> = [
+  { labelAr: 'السعر (تجريبي)', get: (p) => formatIQD(p.priceIQD) },
   { labelAr: 'التخزين', get: (p) => p.specs.storage ?? '—' },
   { labelAr: 'الرام', get: (p) => p.specs.ram ?? '—' },
   { labelAr: 'البطارية', get: (p) => p.specs.battery ?? '—' },
-  { labelAr: 'الضمان', get: (p) => `${p.specs.warrantyMonths} شهر` },
+  { labelAr: 'الضمان', get: (p) => `${p.warrantyMonths} شهر` },
 ];
 
-export function CompareTable({ products }: { products: readonly Product[] }) {
+export function CompareTable({ products }: { products: readonly CustomerProductItem[] }) {
   return (
     <section className="compare" aria-labelledby="compare-title">
       <header className="compare-head">
